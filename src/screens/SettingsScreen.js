@@ -1,0 +1,757 @@
+// SC/src/screens/SettingsScreen.js
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  TextInput,
+  Alert,
+  Modal,
+} from "react-native";
+import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { useTheme } from "../context/ThemeContext";
+import { getAuth } from "firebase/auth";
+import { UserService } from "../services/UserService";
+import { FriendService } from "../services/FriendService";
+
+export default function SettingsScreen() {
+  const theme = useTheme();
+  const auth = getAuth();
+  const [userProfile, setUserProfile] = useState(null);
+  const [displayName, setDisplayName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+  const [scIdInput, setScIdInput] = useState("");
+
+  // 프로필 및 친구 목록 로드
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const profile = await UserService.getCurrentUserProfile();
+        if (profile) {
+          setUserProfile(profile);
+          setDisplayName(profile.displayName || "");
+        } else {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            await UserService.createOrUpdateUserProfile(currentUser.uid);
+            const newProfile = await UserService.getCurrentUserProfile();
+            setUserProfile(newProfile);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      } finally {
+        setLoadingProfile(false);
+      }
+
+      try {
+        const friendsList = await FriendService.getFriendsList();
+        setFriends(friendsList);
+      } catch (error) {
+        console.error("Error loading friends:", error);
+      }
+    };
+    loadData();
+  }, [auth]);
+
+  const loadFriends = async () => {
+    try {
+      const friendsList = await FriendService.getFriendsList();
+      setFriends(friendsList);
+    } catch (error) {
+      console.error("Error loading friends:", error);
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!displayName.trim()) {
+      Alert.alert("오류", "이름을 입력해주세요");
+      return;
+    }
+
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        await UserService.updateDisplayName(currentUser.uid, displayName);
+        setUserProfile({
+          ...userProfile,
+          displayName: displayName,
+        });
+        setIsEditingName(false);
+        Alert.alert("성공", "이름이 변경되었습니다");
+      }
+    } catch (error) {
+      console.error("Error updating display name:", error);
+      Alert.alert("오류", "이름 변경에 실패했습니다");
+    }
+  };
+
+  const handleRemoveFriend = async (friendId) => {
+    Alert.alert("친구 삭제", "정말 삭제하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        onPress: async () => {
+          try {
+            await FriendService.removeFriend(friendId);
+            loadFriends();
+            Alert.alert("성공", "친구가 삭제되었습니다");
+          } catch (error) {
+            console.error("Error removing friend:", error);
+            Alert.alert("오류", "친구 삭제에 실패했습니다");
+          }
+        },
+        style: "destructive",
+      },
+    ]);
+  };
+
+  const handleAddFriend = async () => {
+    if (!scIdInput.trim()) {
+      Alert.alert("오류", "SC ID를 입력해주세요");
+      return;
+    }
+
+    try {
+      const addedFriend = await FriendService.addFriendByScId(
+        scIdInput.trim().toUpperCase()
+      );
+      setShowAddFriendModal(false);
+      setScIdInput("");
+      loadFriends();
+      Alert.alert(
+        "성공",
+        `${addedFriend.displayName || addedFriend.scId}님을 친구로 추가했습니다`
+      );
+    } catch (error) {
+      console.error("Error adding friend:", error);
+      Alert.alert("오류", error.message || "친구 추가에 실패했습니다");
+    }
+  };
+
+  const toggleDarkModeSwitch = () => theme.toggle();
+
+  const SettingsItem = ({
+    icon,
+    title,
+    value,
+    onValueChange,
+    isToggle = false,
+    onPress,
+  }) => (
+    <TouchableOpacity
+      style={[
+        styles.settingItem,
+        {
+          backgroundColor: theme.colors.background,
+          borderBottomColor: theme.mode === "dark" ? "#555" : "#eee",
+        },
+      ]}
+      onPress={onPress || (isToggle ? onValueChange || (() => {}) : undefined)}
+      disabled={isToggle && !onValueChange}
+    >
+      <View style={styles.itemContent}>
+        <FontAwesome
+          name={icon}
+          size={24}
+          color={theme.colors.tint}
+          style={styles.icon}
+        />
+        <Text style={[styles.itemTitle, { color: theme.colors.text }]}>
+          {title}
+        </Text>
+      </View>
+      {isToggle ? (
+        <Switch
+          trackColor={{ false: "#767577", true: theme.colors.tint }}
+          thumbColor={value ? "#f4f3f4" : "#f4f3f4"}
+          ios_backgroundColor="#3e3e3e"
+          onValueChange={onValueChange}
+          value={value}
+        />
+      ) : (
+        <MaterialIcons name="keyboard-arrow-right" size={24} color="#aaa" />
+      )}
+    </TouchableOpacity>
+  );
+
+  if (loadingProfile) {
+    return (
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
+      >
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          로드 중...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <>
+          <Text style={[styles.title, { color: theme.colors.text }]}>설정</Text>
+
+          {/* 계정 설정 섹션 */}
+          <Text style={[styles.sectionTitle, { color: theme.colors.tint }]}>
+            계정
+          </Text>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            {/* SC ID 표시 */}
+            <View
+              style={[
+                styles.settingItem,
+                {
+                  backgroundColor: theme.colors.background,
+                  borderBottomColor: theme.mode === "dark" ? "#555" : "#eee",
+                },
+              ]}
+            >
+              <View style={styles.itemContent}>
+                <FontAwesome
+                  name="key"
+                  size={24}
+                  color={theme.colors.tint}
+                  style={styles.icon}
+                />
+                <View>
+                  <Text
+                    style={[styles.itemTitle, { color: theme.colors.text }]}
+                  >
+                    SC ID
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: theme.colors.text,
+                      opacity: 0.7,
+                      marginTop: 4,
+                    }}
+                  >
+                    {userProfile?.scId || "로드 중..."}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert("SC ID 복사됨", userProfile?.scId || "");
+                }}
+              >
+                <MaterialIcons name="content-copy" size={20} color="#aaa" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Display Name 편집 */}
+            <View
+              style={[
+                styles.settingItem,
+                {
+                  backgroundColor: theme.colors.background,
+                  borderBottomColor: theme.mode === "dark" ? "#555" : "#eee",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  alignItems: "center",
+                }}
+              >
+                <View style={styles.itemContent}>
+                  <FontAwesome
+                    name="user-circle"
+                    size={24}
+                    color={theme.colors.tint}
+                    style={styles.icon}
+                  />
+                  <Text
+                    style={[styles.itemTitle, { color: theme.colors.text }]}
+                  >
+                    내 이름
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsEditingName(!isEditingName)}
+                >
+                  <MaterialIcons
+                    name={isEditingName ? "check" : "edit"}
+                    size={20}
+                    color={theme.colors.tint}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {isEditingName ? (
+                <View style={{ width: "100%", marginTop: 10 }}>
+                  <TextInput
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    placeholder="새 이름 입력"
+                    style={{
+                      borderWidth: 1,
+                      borderColor: theme.colors.tint,
+                      borderRadius: 5,
+                      padding: 10,
+                      color: theme.colors.text,
+                      backgroundColor:
+                        theme.mode === "dark" ? "#333" : "#f5f5f5",
+                    }}
+                  />
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "flex-end",
+                      marginTop: 10,
+                      gap: 10,
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => setIsEditingName(false)}
+                      style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 12,
+                        borderRadius: 5,
+                        backgroundColor: "#ccc",
+                      }}
+                    >
+                      <Text style={{ color: "#000", fontSize: 14 }}>취소</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleSaveDisplayName}
+                      style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 12,
+                        borderRadius: 5,
+                        backgroundColor: theme.colors.tint,
+                      }}
+                    >
+                      <Text style={{ color: "#fff", fontSize: 14 }}>저장</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: theme.colors.text,
+                    marginTop: 4,
+                    opacity: 0.7,
+                  }}
+                >
+                  {displayName || "(미설정)"}
+                </Text>
+              )}
+            </View>
+
+            <SettingsItem
+              icon="sign-out"
+              title="로그아웃"
+              onPress={() => console.log("로그아웃 처리")}
+            />
+          </View>
+
+          {/* 새로고침 버튼 */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: theme.colors.tint,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              marginVertical: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onPress={async () => {
+              setLoadingProfile(true);
+              const profile = await UserService.getCurrentUserProfile();
+              if (profile) {
+                setUserProfile(profile);
+                setDisplayName(profile.displayName || "");
+              }
+              await loadFriends();
+              setLoadingProfile(false);
+            }}
+          >
+            <MaterialIcons name="refresh" size={20} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
+              새로고침
+            </Text>
+          </TouchableOpacity>
+
+          {/* 친구 관리 섹션 */}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 10,
+            }}
+          >
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: theme.colors.tint, marginBottom: 0 },
+              ]}
+            >
+              친구 관리
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowAddFriendModal(true)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: theme.colors.tint,
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+              }}
+            >
+              <MaterialIcons name="person-add" size={18} color="#fff" />
+              <Text
+                style={{
+                  color: "#fff",
+                  marginLeft: 4,
+                  fontSize: 14,
+                  fontWeight: "600",
+                }}
+              >
+                친구 추가
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            {friends.length === 0 ? (
+              <View
+                style={[
+                  styles.settingItem,
+                  {
+                    backgroundColor: theme.colors.background,
+                    justifyContent: "center",
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: theme.colors.text,
+                    opacity: 0.6,
+                    textAlign: "center",
+                  }}
+                >
+                  친구가 없습니다
+                </Text>
+              </View>
+            ) : (
+              friends.map((friend, index) => (
+                <View
+                  key={friend.userId}
+                  style={[
+                    styles.settingItem,
+                    {
+                      backgroundColor: theme.colors.background,
+                      borderBottomColor:
+                        index === friends.length - 1
+                          ? "transparent"
+                          : theme.mode === "dark"
+                          ? "#555"
+                          : "#eee",
+                    },
+                  ]}
+                >
+                  <View style={styles.itemContent}>
+                    <FontAwesome
+                      name="user"
+                      size={20}
+                      color={theme.colors.tint}
+                      style={styles.icon}
+                    />
+                    <View>
+                      <Text
+                        style={[styles.itemTitle, { color: theme.colors.text }]}
+                      >
+                        {friend.displayName || "(미설정)"}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: theme.colors.text,
+                          opacity: 0.6,
+                        }}
+                      >
+                        @{friend.scId || friend.userId.substring(0, 8)}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveFriend(friend.userId)}
+                  >
+                    <MaterialIcons name="delete" size={20} color="#395fa5ff" />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+
+          {/* 알림 및 표시 섹션 */}
+          <Text style={[styles.sectionTitle, { color: theme.colors.tint }]}>
+            알림 및 표시
+          </Text>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <SettingsItem
+              icon="moon-o"
+              title="다크 모드"
+              isToggle={true}
+              value={theme.mode === "dark"}
+              onValueChange={toggleDarkModeSwitch}
+            />
+          </View>
+
+          {/* 일반 설정 섹션 */}
+          <Text style={[styles.sectionTitle, { color: theme.colors.tint }]}>
+            일반
+          </Text>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <SettingsItem
+              icon="info-circle"
+              title="앱 정보"
+              onPress={() => console.log("앱 정보 페이지")}
+            />
+            <SettingsItem
+              icon="file-text"
+              title="개인정보 보호 정책"
+              onPress={() => console.log("개인정보 정책 보기")}
+            />
+            <SettingsItem
+              icon="question-circle"
+              title="고객 지원"
+              onPress={() => console.log("고객 지원 페이지")}
+            />
+          </View>
+        </>
+      </ScrollView>
+
+      {/* 친구 추가 모달 */}
+      <Modal
+        visible={showAddFriendModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddFriendModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.background,
+              padding: 24,
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 400,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "700",
+                color: theme.colors.text,
+                marginBottom: 16,
+              }}
+            >
+              친구 추가
+            </Text>
+
+            <Text
+              style={{
+                fontSize: 14,
+                color: theme.colors.text,
+                opacity: 0.7,
+                marginBottom: 12,
+              }}
+            >
+              친구의 SC ID를 입력하세요 (6자리)
+            </Text>
+
+            <TextInput
+              value={scIdInput}
+              onChangeText={setScIdInput}
+              placeholder="예: ABC123"
+              placeholderTextColor={theme.mode === "dark" ? "#888" : "#aaa"}
+              autoCapitalize="characters"
+              maxLength={6}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.colors.tint,
+                borderRadius: 8,
+                padding: 12,
+                fontSize: 16,
+                color: theme.colors.text,
+                backgroundColor: theme.mode === "dark" ? "#333" : "#f5f5f5",
+                marginBottom: 20,
+                textAlign: "center",
+                fontWeight: "600",
+                letterSpacing: 2,
+              }}
+            />
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAddFriendModal(false);
+                  setScIdInput("");
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  backgroundColor: theme.mode === "dark" ? "#444" : "#e0e0e0",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: theme.colors.text,
+                    fontSize: 16,
+                    fontWeight: "600",
+                  }}
+                >
+                  취소
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleAddFriend}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  backgroundColor: theme.colors.tint,
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 16,
+                    fontWeight: "600",
+                  }}
+                >
+                  추가
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f7f7f7",
+  },
+  scrollContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 30,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#395fa5ff",
+    marginTop: 15,
+    marginBottom: 8,
+    paddingHorizontal: 5,
+  },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    overflow: "hidden",
+    boxShadow: "0 2px 3px rgba(0, 0, 0, 0.05)",
+    elevation: 2,
+    marginBottom: 20,
+  },
+  settingItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  itemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  icon: {
+    marginRight: 15,
+    width: 24,
+    textAlign: "center",
+  },
+  itemTitle: {
+    fontSize: 17,
+    color: "#333",
+  },
+  versionText: {
+    textAlign: "center",
+    fontSize: 14,
+    color: "#aaa",
+    marginTop: 30,
+  },
+});
