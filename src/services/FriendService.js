@@ -1,64 +1,55 @@
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  deleteDoc,
-  query,
-  where,
-  getDocs,
-  onSnapshot,
-  getDoc,
-} from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { supabase } from "../lib/supabaseClient";
+import UserService from "./UserService";
 
 export class FriendService {
-  static db = getFirestore();
-  static auth = getAuth();
-
   /**
    * SC ID로 친구 추가
    * @param {string} scId - 친구의 SC ID (6자리 코드)
    */
   static async addFriendByScId(scId) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      // UserService를 import하여 사용
-      const { UserService } = await import("./UserService");
-
-      // SC ID로 사용자 검색
       const targetUser = await UserService.findUserByScId(scId);
       if (!targetUser) {
         throw new Error("존재하지 않는 SC ID입니다");
       }
 
-      if (currentUser.uid === targetUser.id) {
+      if (user.id === targetUser.auth_id) {
         throw new Error("자신을 친구로 추가할 수 없습니다");
       }
 
-      // 친구 ID 생성 (사전식 순서로: userId1 < userId2)
-      const [user1, user2] = [currentUser.uid, targetUser.id].sort();
+      const [user1, user2] = [user.id, targetUser.auth_id].sort();
       const friendshipId = `${user1}_${user2}`;
 
-      const friendshipRef = doc(this.db, "friendships", friendshipId);
+      const { data: existing, error: checkError } = await supabase
+        .from("friendships")
+        .select("id")
+        .eq("id", friendshipId)
+        .limit(1);
 
-      // 이미 친구인지 확인
-      const friendshipSnap = await getDoc(friendshipRef);
-      if (friendshipSnap.exists()) {
+      if (checkError) throw checkError;
+      if (existing && existing.length > 0) {
         throw new Error("이미 친구입니다");
       }
 
-      await setDoc(friendshipRef, {
-        user1,
-        user2,
-        requester: currentUser.uid,
-        status: "active",
-        createdAt: new Date(),
-      });
+      const { error: insertError } = await supabase.from("friendships").insert([
+        {
+          id: friendshipId,
+          user1,
+          user2,
+          requester: user.id,
+          status: "active",
+          created_at: new Date().toISOString(),
+        },
+      ]);
 
-      return targetUser; // 추가된 친구 정보 반환
+      if (insertError) throw insertError;
+      return targetUser;
     } catch (error) {
       console.error("FriendService.addFriendByScId error:", error);
       throw error;
@@ -71,26 +62,31 @@ export class FriendService {
    */
   static async addFriend(targetUserId) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      if (currentUser.uid === targetUserId) {
+      if (user.id === targetUserId) {
         throw new Error("자신을 친구로 추가할 수 없습니다");
       }
 
-      // 친구 ID 생성 (사전식 순서로: userId1 < userId2)
-      const [user1, user2] = [currentUser.uid, targetUserId].sort();
+      const [user1, user2] = [user.id, targetUserId].sort();
       const friendshipId = `${user1}_${user2}`;
 
-      const friendshipRef = doc(this.db, "friendships", friendshipId);
+      const { error: insertError } = await supabase.from("friendships").insert([
+        {
+          id: friendshipId,
+          user1,
+          user2,
+          requester: user.id,
+          status: "active",
+          created_at: new Date().toISOString(),
+        },
+      ]);
 
-      await setDoc(friendshipRef, {
-        user1,
-        user2,
-        requester: currentUser.uid,
-        status: "active",
-        createdAt: new Date(),
-      });
+      if (insertError) throw insertError;
     } catch (error) {
       console.error("FriendService.addFriend error:", error);
       throw error;
@@ -102,14 +98,21 @@ export class FriendService {
    */
   static async removeFriend(friendUserId) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const [user1, user2] = [currentUser.uid, friendUserId].sort();
+      const [user1, user2] = [user.id, friendUserId].sort();
       const friendshipId = `${user1}_${user2}`;
 
-      const friendshipRef = doc(this.db, "friendships", friendshipId);
-      await deleteDoc(friendshipRef);
+      const { error: deleteError } = await supabase
+        .from("friendships")
+        .delete()
+        .eq("id", friendshipId);
+
+      if (deleteError) throw deleteError;
     } catch (error) {
       console.error("FriendService.removeFriend error:", error);
       throw error;
@@ -121,38 +124,39 @@ export class FriendService {
    */
   static async getFriendsList() {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const friendshipsRef = collection(this.db, "friendships");
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from("friendships")
+        .select("*")
+        .eq("status", "active");
 
-      // 현재 사용자가 포함된 모든 친구 관계 조회
-      const q = query(friendshipsRef, where("status", "==", "active"));
+      if (friendshipsError) throw friendshipsError;
 
-      const snapshot = await getDocs(q);
       const friends = [];
 
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-
-        // 현재 사용자와 관련된 친구 관계인지 확인
-        if (data.user1 !== currentUser.uid && data.user2 !== currentUser.uid) {
+      for (const friendship of friendships) {
+        if (friendship.user1 !== user.id && friendship.user2 !== user.id) {
           continue;
         }
 
-        // 상대방의 UID 추출
-        const friendUserId =
-          data.user1 === currentUser.uid ? data.user2 : data.user1;
+        const friendAuthId =
+          friendship.user1 === user.id ? friendship.user2 : friendship.user1;
 
-        // 상대방의 프로필 정보 가져오기
-        const friendDocRef = doc(this.db, "users", friendUserId);
-        const friendDocSnap = await getDoc(friendDocRef);
+        const { data: friendData, error: friendError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("auth_id", friendAuthId)
+          .limit(1);
 
-        if (friendDocSnap.exists()) {
+        if (!friendError && friendData && friendData.length > 0) {
           friends.push({
-            friendshipId: docSnap.id,
-            userId: friendUserId,
-            ...friendDocSnap.data(),
+            friendshipId: friendship.id,
+            ...friendData[0],
           });
         }
       }
@@ -169,52 +173,70 @@ export class FriendService {
    */
   static listenFriendsList(callback) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) {
-        callback([]);
-        return () => {};
-      }
-
-      const friendshipsRef = collection(this.db, "friendships");
-      const q = query(friendshipsRef, where("status", "==", "active"));
-
-      const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const friends = [];
-
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
-
-          // 현재 사용자와 관련된 친구 관계인지 확인
-          if (
-            data.user1 !== currentUser.uid &&
-            data.user2 !== currentUser.uid
-          ) {
-            continue;
+      supabase.auth
+        .getUser()
+        .then(async ({ data: { user }, error: userError }) => {
+          if (userError || !user) {
+            callback([]);
+            return;
           }
 
-          const friendUserId =
-            data.user1 === currentUser.uid ? data.user2 : data.user1;
+          const subscription = supabase
+            .from("friendships")
+            .on("*", async (payload) => {
+              const { data: friendships, error: friendshipsError } =
+                await supabase
+                  .from("friendships")
+                  .select("*")
+                  .eq("status", "active");
 
-          try {
-            const friendDocRef = doc(this.db, "users", friendUserId);
-            const friendDocSnap = await getDoc(friendDocRef);
+              if (friendshipsError) {
+                console.error("Error fetching friendships:", friendshipsError);
+                return;
+              }
 
-            if (friendDocSnap.exists()) {
-              friends.push({
-                friendshipId: docSnap.id,
-                userId: friendUserId,
-                ...friendDocSnap.data(),
-              });
-            }
-          } catch (err) {
-            console.error("Error fetching friend profile:", err);
-          }
-        }
+              const friends = [];
 
-        callback(friends);
-      });
+              for (const friendship of friendships) {
+                if (
+                  friendship.user1 !== user.id &&
+                  friendship.user2 !== user.id
+                ) {
+                  continue;
+                }
 
-      return unsubscribe;
+                const friendAuthId =
+                  friendship.user1 === user.id
+                    ? friendship.user2
+                    : friendship.user1;
+
+                try {
+                  const { data: friendData, error: friendError } =
+                    await supabase
+                      .from("users")
+                      .select("*")
+                      .eq("auth_id", friendAuthId)
+                      .limit(1);
+
+                  if (!friendError && friendData && friendData.length > 0) {
+                    friends.push({
+                      friendshipId: friendship.id,
+                      ...friendData[0],
+                    });
+                  }
+                } catch (err) {
+                  console.error("Error fetching friend profile:", err);
+                }
+              }
+
+              callback(friends);
+            })
+            .subscribe();
+
+          return () => subscription?.unsubscribe();
+        });
+
+      return () => {};
     } catch (error) {
       console.error("FriendService.listenFriendsList error:", error);
       return () => {};
@@ -226,18 +248,22 @@ export class FriendService {
    */
   static async isFriend(userId) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) return false;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) return false;
 
-      const [user1, user2] = [currentUser.uid, userId].sort();
+      const [user1, user2] = [user.id, userId].sort();
       const friendshipId = `${user1}_${user2}`;
 
-      const friendshipRef = doc(this.db, "friendships", friendshipId);
-      const friendshipSnap = await getDoc(friendshipRef);
+      const { data, error } = await supabase
+        .from("friendships")
+        .select("*")
+        .eq("id", friendshipId)
+        .limit(1);
 
-      return (
-        friendshipSnap.exists() && friendshipSnap.data().status === "active"
-      );
+      return !error && data && data.length > 0 && data[0].status === "active";
     } catch (error) {
       console.error("FriendService.isFriend error:", error);
       return false;

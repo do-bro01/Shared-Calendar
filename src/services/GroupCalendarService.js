@@ -1,24 +1,6 @@
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  getDocs,
-  onSnapshot,
-  arrayUnion,
-  arrayRemove,
-  getDoc,
-} from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { supabase } from "../lib/supabaseClient";
 
 export class GroupCalendarService {
-  static db = getFirestore();
-  static auth = getAuth();
-
   /**
    * 새로운 단체 달력 생성
    * @param {string} name - 달력방 이름
@@ -26,24 +8,28 @@ export class GroupCalendarService {
    */
   static async createGroupCalendar(name, memberIds = []) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      // 생성자도 멤버에 포함
-      const members = Array.from(new Set([currentUser.uid, ...memberIds]));
+      const members = Array.from(new Set([user.id, ...memberIds]));
 
-      const groupsRef = collection(this.db, "groupCalendars");
-      const newGroupRef = doc(groupsRef);
+      const { error: insertError } = await supabase
+        .from("group_calendars")
+        .insert([
+          {
+            name,
+            members,
+            created_by: user.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ]);
 
-      await setDoc(newGroupRef, {
-        name,
-        members,
-        createdBy: currentUser.uid,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      return newGroupRef.id;
+      if (insertError) throw insertError;
+      return true;
     } catch (error) {
       console.error("GroupCalendarService.createGroupCalendar error:", error);
       throw error;
@@ -55,16 +41,14 @@ export class GroupCalendarService {
    */
   static async getGroupCalendar(groupId) {
     try {
-      const groupRef = doc(this.db, "groupCalendars", groupId);
-      const groupSnap = await getDoc(groupRef);
+      const { data, error } = await supabase
+        .from("group_calendars")
+        .select("*")
+        .eq("id", groupId)
+        .limit(1);
 
-      if (groupSnap.exists()) {
-        return {
-          id: groupSnap.id,
-          ...groupSnap.data(),
-        };
-      }
-      return null;
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       console.error("GroupCalendarService.getGroupCalendar error:", error);
       throw error;
@@ -76,26 +60,19 @@ export class GroupCalendarService {
    */
   static async getUserGroupCalendars() {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const groupsRef = collection(this.db, "groupCalendars");
-      const q = query(
-        groupsRef,
-        where("members", "array-contains", currentUser.uid)
-      );
+      const { data, error } = await supabase
+        .from("group_calendars")
+        .select("*")
+        .contains("members", [user.id]);
 
-      const snapshot = await getDocs(q);
-      const groups = [];
-
-      snapshot.forEach((doc) => {
-        groups.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
-
-      return groups;
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error("GroupCalendarService.getUserGroupCalendars error:", error);
       throw error;
@@ -107,36 +84,36 @@ export class GroupCalendarService {
    */
   static listenUserGroupCalendars(callback) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) {
-        callback([]);
-        return () => {};
-      }
+      supabase.auth
+        .getUser()
+        .then(async ({ data: { user }, error: userError }) => {
+          if (userError || !user) {
+            callback([]);
+            return;
+          }
 
-      const groupsRef = collection(this.db, "groupCalendars");
-      const q = query(
-        groupsRef,
-        where("members", "array-contains", currentUser.uid)
-      );
+          const subscription = supabase
+            .from("group_calendars")
+            .on("*", async (payload) => {
+              const { data, error } = await supabase
+                .from("group_calendars")
+                .select("*")
+                .contains("members", [user.id]);
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const groups = [];
+              if (!error && data) {
+                callback(data);
+              }
+            })
+            .subscribe();
 
-        snapshot.forEach((doc) => {
-          groups.push({
-            id: doc.id,
-            ...doc.data(),
-          });
+          return () => subscription?.unsubscribe();
         });
 
-        callback(groups);
-      });
-
-      return unsubscribe;
+      return () => {};
     } catch (error) {
       console.error(
         "GroupCalendarService.listenUserGroupCalendars error:",
-        error
+        error,
       );
       return () => {};
     }
@@ -147,23 +124,40 @@ export class GroupCalendarService {
    */
   static async addMember(groupId, memberId) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const groupRef = doc(this.db, "groupCalendars", groupId);
-      const groupSnap = await getDoc(groupRef);
+      const { data: group, error: fetchError } = await supabase
+        .from("group_calendars")
+        .select("*")
+        .eq("id", groupId)
+        .limit(1);
 
-      if (!groupSnap.exists()) throw new Error("달력방을 찾을 수 없습니다");
+      if (fetchError) throw fetchError;
+      if (!group || group.length === 0)
+        throw new Error("달력방을 찾을 수 없습니다");
 
-      const group = groupSnap.data();
-      if (!group.members.includes(currentUser.uid)) {
+      const groupData = group[0];
+      if (!groupData.members.includes(user.id)) {
         throw new Error("권한이 없습니다");
       }
 
-      await updateDoc(groupRef, {
-        members: arrayUnion(memberId),
-        updatedAt: new Date(),
-      });
+      const updatedMembers = Array.from(
+        new Set([...groupData.members, memberId]),
+      );
+
+      const { error: updateError } = await supabase
+        .from("group_calendars")
+        .update({
+          members: updatedMembers,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", groupId);
+
+      if (updateError) throw updateError;
     } catch (error) {
       console.error("GroupCalendarService.addMember error:", error);
       throw error;
@@ -175,24 +169,38 @@ export class GroupCalendarService {
    */
   static async removeMember(groupId, memberId) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const groupRef = doc(this.db, "groupCalendars", groupId);
-      const groupSnap = await getDoc(groupRef);
+      const { data: group, error: fetchError } = await supabase
+        .from("group_calendars")
+        .select("*")
+        .eq("id", groupId)
+        .limit(1);
 
-      if (!groupSnap.exists()) throw new Error("달력방을 찾을 수 없습니다");
+      if (fetchError) throw fetchError;
+      if (!group || group.length === 0)
+        throw new Error("달력방을 찾을 수 없습니다");
 
-      const group = groupSnap.data();
-      // 생성자 또는 자신만 제거 가능
-      if (currentUser.uid !== group.createdBy && currentUser.uid !== memberId) {
+      const groupData = group[0];
+      if (user.id !== groupData.created_by && user.id !== memberId) {
         throw new Error("권한이 없습니다");
       }
 
-      await updateDoc(groupRef, {
-        members: arrayRemove(memberId),
-        updatedAt: new Date(),
-      });
+      const updatedMembers = groupData.members.filter((id) => id !== memberId);
+
+      const { error: updateError } = await supabase
+        .from("group_calendars")
+        .update({
+          members: updatedMembers,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", groupId);
+
+      if (updateError) throw updateError;
     } catch (error) {
       console.error("GroupCalendarService.removeMember error:", error);
       throw error;
@@ -204,33 +212,49 @@ export class GroupCalendarService {
    */
   static async deleteGroupCalendar(groupId) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const groupRef = doc(this.db, "groupCalendars", groupId);
-      const groupSnap = await getDoc(groupRef);
+      const { data: group, error: fetchError } = await supabase
+        .from("group_calendars")
+        .select("*")
+        .eq("id", groupId)
+        .limit(1);
 
-      if (!groupSnap.exists()) throw new Error("달력방을 찾을 수 없습니다");
+      if (fetchError) throw fetchError;
+      if (!group || group.length === 0)
+        throw new Error("달력방을 찾을 수 없습니다");
 
-      const group = groupSnap.data();
-      if (currentUser.uid !== group.createdBy) {
+      const groupData = group[0];
+      if (user.id !== groupData.created_by) {
         throw new Error("권한이 없습니다");
       }
 
-      // 관련 groupEvents도 함께 삭제
-      const eventsRef = collection(this.db, "groupEvents");
-      const eventsQuery = query(
-        eventsRef,
-        where("groupCalendarId", "==", groupId)
-      );
-      const eventsSnapshot = await getDocs(eventsQuery);
+      const { data: events, error: eventsError } = await supabase
+        .from("group_events")
+        .select("id")
+        .eq("group_calendar_id", groupId);
 
-      const deletePromises = eventsSnapshot.docs.map((eventDoc) =>
-        deleteDoc(eventDoc.ref)
-      );
-      await Promise.all(deletePromises);
+      if (eventsError) throw eventsError;
 
-      await deleteDoc(groupRef);
+      if (events && events.length > 0) {
+        const { error: deleteEventsError } = await supabase
+          .from("group_events")
+          .delete()
+          .eq("group_calendar_id", groupId);
+
+        if (deleteEventsError) throw deleteEventsError;
+      }
+
+      const { error: deleteError } = await supabase
+        .from("group_calendars")
+        .delete()
+        .eq("id", groupId);
+
+      if (deleteError) throw deleteError;
     } catch (error) {
       console.error("GroupCalendarService.deleteGroupCalendar error:", error);
       throw error;
@@ -242,27 +266,40 @@ export class GroupCalendarService {
    */
   static async updateGroupCalendarName(groupId, newName) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const groupRef = doc(this.db, "groupCalendars", groupId);
-      const groupSnap = await getDoc(groupRef);
+      const { data: group, error: fetchError } = await supabase
+        .from("group_calendars")
+        .select("*")
+        .eq("id", groupId)
+        .limit(1);
 
-      if (!groupSnap.exists()) throw new Error("달력방을 찾을 수 없습니다");
+      if (fetchError) throw fetchError;
+      if (!group || group.length === 0)
+        throw new Error("달력방을 찾을 수 없습니다");
 
-      const group = groupSnap.data();
-      if (currentUser.uid !== group.createdBy) {
+      const groupData = group[0];
+      if (user.id !== groupData.created_by) {
         throw new Error("권한이 없습니다");
       }
 
-      await updateDoc(groupRef, {
-        name: newName,
-        updatedAt: new Date(),
-      });
+      const { error: updateError } = await supabase
+        .from("group_calendars")
+        .update({
+          name: newName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", groupId);
+
+      if (updateError) throw updateError;
     } catch (error) {
       console.error(
         "GroupCalendarService.updateGroupCalendarName error:",
-        error
+        error,
       );
       throw error;
     }

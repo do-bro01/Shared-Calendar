@@ -1,42 +1,37 @@
-import {
-  getFirestore,
-  collection,
-  doc,
-  addDoc,
-  deleteDoc,
-  query,
-  where,
-  getDocs,
-  onSnapshot,
-  getDoc,
-  updateDoc,
-} from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { supabase } from "../lib/supabaseClient";
 
 export class GroupEventService {
-  static db = getFirestore();
-  static auth = getAuth();
-
   /**
    * 단체 달력에 이벤트 추가
    * @param {object} event - { title, date, endDate, groupCalendarId, linkedPersonalEventId, dotColor }
    */
   static async addEventToGroup(event) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const eventsRef = collection(this.db, "groupEvents");
-      const newEvent = {
-        ...event,
-        userId: currentUser.uid,
-        linkedPersonalEventId: event.linkedPersonalEventId || null,
-        dotColor: event.dotColor || "#395fa5ff",
-        createdAt: new Date(),
-      };
+      const { data, error } = await supabase
+        .from("group_events")
+        .insert([
+          {
+            title: event.title,
+            date: event.date,
+            end_date: event.endDate || event.date,
+            group_calendar_id: event.groupCalendarId,
+            user_id: user.id,
+            linked_personal_event_id: event.linkedPersonalEventId || null,
+            dot_color: event.dotColor || "#395fa5ff",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .select();
 
-      const docRef = await addDoc(eventsRef, newEvent);
-      return docRef.id;
+      if (error) throw error;
+      return data && data.length > 0 ? data[0].id : null;
     } catch (error) {
       console.error("GroupEventService.addEventToGroup error:", error);
       throw error;
@@ -48,24 +43,14 @@ export class GroupEventService {
    */
   static async getGroupEvents(groupCalendarId, date) {
     try {
-      const eventsRef = collection(this.db, "groupEvents");
-      const q = query(
-        eventsRef,
-        where("groupCalendarId", "==", groupCalendarId),
-        where("date", "==", date)
-      );
+      const { data, error } = await supabase
+        .from("group_events")
+        .select("*")
+        .eq("group_calendar_id", groupCalendarId)
+        .eq("date", date);
 
-      const snapshot = await getDocs(q);
-      const events = [];
-
-      snapshot.forEach((doc) => {
-        events.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
-
-      return events;
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error("GroupEventService.getGroupEvents error:", error);
       throw error;
@@ -77,26 +62,21 @@ export class GroupEventService {
    */
   static listenGroupEvents(groupCalendarId, callback) {
     try {
-      const eventsRef = collection(this.db, "groupEvents");
-      const q = query(
-        eventsRef,
-        where("groupCalendarId", "==", groupCalendarId)
-      );
+      const subscription = supabase
+        .from("group_events")
+        .on("*", async (payload) => {
+          const { data, error } = await supabase
+            .from("group_events")
+            .select("*")
+            .eq("group_calendar_id", groupCalendarId);
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const events = [];
+          if (!error && data) {
+            callback(data);
+          }
+        })
+        .subscribe();
 
-        snapshot.forEach((doc) => {
-          events.push({
-            id: doc.id,
-            ...doc.data(),
-          });
-        });
-
-        callback(events);
-      });
-
-      return unsubscribe;
+      return () => subscription?.unsubscribe();
     } catch (error) {
       console.error("GroupEventService.listenGroupEvents error:", error);
       return () => {};
@@ -108,12 +88,14 @@ export class GroupEventService {
    */
   static async getGroupEvent(eventId) {
     try {
-      const eventRef = doc(this.db, "groupEvents", eventId);
-      const eventSnap = await getDoc(eventRef);
-      if (eventSnap.exists()) {
-        return { id: eventSnap.id, ...eventSnap.data() };
-      }
-      return null;
+      const { data, error } = await supabase
+        .from("group_events")
+        .select("*")
+        .eq("id", eventId)
+        .limit(1);
+
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       console.error("GroupEventService.getGroupEvent error:", error);
       throw error;
@@ -125,19 +107,23 @@ export class GroupEventService {
    */
   static async updateGroupEvent(eventId, { title, date, endDate, dotColor }) {
     try {
-      const eventRef = doc(this.db, "groupEvents", eventId);
       const updateData = {
         title,
         date,
-        endDate: endDate || date,
-        updatedAt: new Date(),
+        end_date: endDate || date,
+        updated_at: new Date().toISOString(),
       };
 
       if (dotColor) {
-        updateData.dotColor = dotColor;
+        updateData.dot_color = dotColor;
       }
 
-      await updateDoc(eventRef, updateData);
+      const { error } = await supabase
+        .from("group_events")
+        .update(updateData)
+        .eq("id", eventId);
+
+      if (error) throw error;
     } catch (error) {
       console.error("GroupEventService.updateGroupEvent error:", error);
       throw error;
@@ -151,24 +137,28 @@ export class GroupEventService {
    */
   static async deleteGroupEvent(eventId, skipCascade = false) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const eventRef = doc(this.db, "groupEvents", eventId);
-      const eventSnap = await getDoc(eventRef);
+      if (!skipCascade) {
+        const { data: event, error: fetchError } = await supabase
+          .from("group_events")
+          .select("*")
+          .eq("id", eventId)
+          .limit(1);
 
-      if (eventSnap.exists() && !skipCascade) {
-        const eventData = eventSnap.data();
+        if (fetchError) throw fetchError;
 
-        // 연결된 개인 일정 삭제 (cascade 플래그 전달)
-        if (eventData.linkedPersonalEventId) {
+        if (event && event.length > 0 && event[0].linked_personal_event_id) {
           try {
-            const { PersonalEventService } = await import(
-              "./PersonalEventService"
-            );
+            const { PersonalEventService } =
+              await import("./PersonalEventService");
             await PersonalEventService.deletePersonalEvent(
-              eventData.linkedPersonalEventId,
-              true
+              event[0].linked_personal_event_id,
+              true,
             );
           } catch (error) {
             console.error(`Error deleting linked personal event:`, error);
@@ -176,7 +166,12 @@ export class GroupEventService {
         }
       }
 
-      await deleteDoc(eventRef);
+      const { error: deleteError } = await supabase
+        .from("group_events")
+        .delete()
+        .eq("id", eventId);
+
+      if (deleteError) throw deleteError;
     } catch (error) {
       console.error("GroupEventService.deleteGroupEvent error:", error);
       throw error;

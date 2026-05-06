@@ -3,8 +3,7 @@ import React, { useEffect, useState } from "react";
 import { StatusBar } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebaseConfig";
+import { supabase } from "./src/lib/supabaseClient";
 import ThemeContext, { ThemeProvider } from "./src/context/ThemeContext";
 
 import LoginScreen from "./src/screens/LoginScreen";
@@ -17,12 +16,14 @@ export default function App() {
   const [loading, setLoading] = useState(true); // 초기 로딩
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   if (loading) return null; // 앱 시작 시 깜빡임 방지

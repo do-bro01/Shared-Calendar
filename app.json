@@ -3,6 +3,7 @@
     "name": "SC",
     "slug": "sc-calendar",
     "version": "1.0.0",
+    "scheme": "sc",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": ["**/*"],

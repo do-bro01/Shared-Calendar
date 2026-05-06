@@ -1,41 +1,65 @@
 // SC/src/services/AuthService.js
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
-import { auth } from "../../firebaseConfig";
+import { Platform } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
+import { supabase } from "../lib/supabaseClient";
 
-export const signUp = async (email, password) => {
-  try {
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    return userCredential.user;
-  } catch (error) {
-    throw error;
+WebBrowser.maybeCompleteAuthSession();
+
+const getRedirectTo = () => {
+  if (Platform.OS === "web") {
+    return typeof window !== "undefined" ? window.location.origin : "";
   }
+  return Linking.createURL("auth-callback");
 };
 
-export const signIn = async (email, password) => {
-  try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    return userCredential.user;
-  } catch (error) {
-    throw error;
+export const signInWithGoogle = async () => {
+  const redirectTo = getRedirectTo();
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo,
+      skipBrowserRedirect: Platform.OS !== "web",
+    },
+  });
+  if (error) throw error;
+
+  if (Platform.OS === "web") {
+    return data;
   }
+
+  if (!data?.url) {
+    throw new Error("OAuth URL을 받지 못했습니다");
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type !== "success" || !result.url) {
+    throw new Error("로그인이 취소되었습니다");
+  }
+
+  const { queryParams } = Linking.parse(result.url);
+  const code = queryParams?.code;
+  if (!code) {
+    throw new Error("인증 코드를 받지 못했습니다");
+  }
+
+  const { data: session, error: exchangeError } =
+    await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) throw exchangeError;
+  return session;
 };
 
 export const logout = async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    throw error;
-  }
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+};
+
+export const getCurrentUser = async () => {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  if (error) throw error;
+  return user;
 };

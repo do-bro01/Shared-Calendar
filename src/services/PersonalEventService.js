@@ -1,20 +1,6 @@
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  query,
-  where,
-  onSnapshot,
-  getDoc,
-} from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { supabase } from "../lib/supabaseClient";
 
 export class PersonalEventService {
-  static db = getFirestore();
-  static auth = getAuth();
-
   /**
    * 개인 일정 추가
    */
@@ -26,21 +12,30 @@ export class PersonalEventService {
     dotColor = "#395fa5ff",
   }) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("로그인되지 않음");
 
-      const eventsRef = collection(this.db, "personalEvents");
-      const docRef = await addDoc(eventsRef, {
-        title,
-        date,
-        endDate: endDate || date,
-        userId: currentUser.uid,
-        linkedGroupEventIds,
-        dotColor,
-        createdAt: new Date(),
-      });
+      const { data, error } = await supabase
+        .from("personal_events")
+        .insert([
+          {
+            title,
+            date,
+            end_date: endDate || date,
+            user_id: user.id,
+            linked_group_event_ids: linkedGroupEventIds,
+            dot_color: dotColor,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .select();
 
-      return docRef.id;
+      if (error) throw error;
+      return data && data.length > 0 ? data[0].id : null;
     } catch (error) {
       console.error("PersonalEventService.addPersonalEvent error:", error);
       throw error;
@@ -52,23 +47,26 @@ export class PersonalEventService {
    */
   static async updatePersonalEvent(
     eventId,
-    { title, date, endDate, dotColor }
+    { title, date, endDate, dotColor },
   ) {
     try {
-      const { updateDoc } = await import("firebase/firestore");
-      const eventRef = doc(this.db, "personalEvents", eventId);
       const updateData = {
         title,
         date,
-        endDate: endDate || date,
-        updatedAt: new Date(),
+        end_date: endDate || date,
+        updated_at: new Date().toISOString(),
       };
 
       if (dotColor) {
-        updateData.dotColor = dotColor;
+        updateData.dot_color = dotColor;
       }
 
-      await updateDoc(eventRef, updateData);
+      const { error } = await supabase
+        .from("personal_events")
+        .update(updateData)
+        .eq("id", eventId);
+
+      if (error) throw error;
     } catch (error) {
       console.error("PersonalEventService.updatePersonalEvent error:", error);
       throw error;
@@ -82,32 +80,41 @@ export class PersonalEventService {
    */
   static async deletePersonalEvent(eventId, skipCascade = false) {
     try {
-      const eventRef = doc(this.db, "personalEvents", eventId);
-      const eventSnap = await getDoc(eventRef);
+      if (!skipCascade) {
+        const { data: event, error: fetchError } = await supabase
+          .from("personal_events")
+          .select("*")
+          .eq("id", eventId)
+          .limit(1);
 
-      if (eventSnap.exists() && !skipCascade) {
-        const eventData = eventSnap.data();
+        if (fetchError) throw fetchError;
 
-        // 연결된 그룹 일정들 삭제 (cascade 플래그 전달)
         if (
-          eventData.linkedGroupEventIds &&
-          eventData.linkedGroupEventIds.length > 0
+          event &&
+          event.length > 0 &&
+          event[0].linked_group_event_ids &&
+          event[0].linked_group_event_ids.length > 0
         ) {
           const { GroupEventService } = await import("./GroupEventService");
-          for (const groupEventId of eventData.linkedGroupEventIds) {
+          for (const groupEventId of event[0].linked_group_event_ids) {
             try {
               await GroupEventService.deleteGroupEvent(groupEventId, true);
             } catch (error) {
               console.error(
                 `Error deleting linked group event ${groupEventId}:`,
-                error
+                error,
               );
             }
           }
         }
       }
 
-      await deleteDoc(eventRef);
+      const { error: deleteError } = await supabase
+        .from("personal_events")
+        .delete()
+        .eq("id", eventId);
+
+      if (deleteError) throw deleteError;
     } catch (error) {
       console.error("PersonalEventService.deletePersonalEvent error:", error);
       throw error;
@@ -119,27 +126,32 @@ export class PersonalEventService {
    */
   static listenPersonalEvents(callback) {
     try {
-      const currentUser = this.auth.currentUser;
-      if (!currentUser) throw new Error("로그인되지 않음");
+      supabase.auth
+        .getUser()
+        .then(async ({ data: { user }, error: userError }) => {
+          if (userError || !user) throw new Error("로그인되지 않음");
 
-      const eventsRef = collection(this.db, "personalEvents");
-      const q = query(eventsRef, where("userId", "==", currentUser.uid));
+          const subscription = supabase
+            .from("personal_events")
+            .on("*", async (payload) => {
+              const { data, error } = await supabase
+                .from("personal_events")
+                .select("*")
+                .eq("user_id", user.id);
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const events = [];
-        snapshot.forEach((doc) => {
-          events.push({
-            id: doc.id,
-            ...doc.data(),
-          });
+              if (!error && data) {
+                callback(data);
+              }
+            })
+            .subscribe();
+
+          return () => subscription?.unsubscribe();
         });
-        callback(events);
-      });
 
-      return unsubscribe;
+      return () => {};
     } catch (error) {
       console.error("PersonalEventService.listenPersonalEvents error:", error);
-      throw error;
+      return () => {};
     }
   }
 }

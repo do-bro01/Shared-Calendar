@@ -1,26 +1,12 @@
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { supabase } from "../lib/supabaseClient";
 
 export class UserService {
-  static db = getFirestore();
-  static auth = getAuth();
-
   /**
    * 6자리 랜덤 SC ID 생성 (중복 체크 포함)
    * @returns {Promise<string>} 고유한 6자리 코드
    */
   static async generateUniqueScId() {
-    const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 혼동 가능한 문자 제외 (I, O, 0, 1)
+    const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const length = 6;
     let scId = "";
     let isUnique = false;
@@ -29,15 +15,17 @@ export class UserService {
       scId = "";
       for (let i = 0; i < length; i++) {
         scId += characters.charAt(
-          Math.floor(Math.random() * characters.length)
+          Math.floor(Math.random() * characters.length),
         );
       }
 
-      // 중복 체크
-      const usersRef = collection(this.db, "users");
-      const q = query(usersRef, where("scId", "==", scId));
-      const querySnapshot = await getDocs(q);
-      isUnique = querySnapshot.empty;
+      const { data, error } = await supabase
+        .from("users")
+        .select("id")
+        .eq("sc_id", scId)
+        .limit(1);
+
+      isUnique = !error && (!data || data.length === 0);
     }
 
     return scId;
@@ -50,18 +38,14 @@ export class UserService {
    */
   static async findUserByScId(scId) {
     try {
-      const usersRef = collection(this.db, "users");
-      const q = query(usersRef, where("scId", "==", scId.toUpperCase()));
-      const querySnapshot = await getDocs(q);
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("sc_id", scId.toUpperCase())
+        .limit(1);
 
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        return {
-          id: userDoc.id,
-          ...userDoc.data(),
-        };
-      }
-      return null;
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       console.error("UserService.findUserByScId error:", error);
       throw error;
@@ -70,27 +54,40 @@ export class UserService {
 
   /**
    * 사용자 프로필 생성 또는 업데이트
-   * @param {string} userId - Firebase Auth UID
+   * @param {string} userId - Supabase Auth UID
    * @param {string} displayName - 사용자가 설정한 이름
    */
   static async createOrUpdateUserProfile(userId, displayName = "") {
     try {
-      const userRef = doc(this.db, "users", userId);
-      const userSnap = await getDoc(userRef);
+      const { data: existingUser, error: fetchError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_id", userId)
+        .limit(1);
 
-      if (userSnap.exists()) {
-        // displayName만 업데이트
+      if (fetchError) throw fetchError;
+
+      if (existingUser && existingUser.length > 0) {
         if (displayName) {
-          await updateDoc(userRef, { displayName });
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({ display_name: displayName })
+            .eq("auth_id", userId);
+
+          if (updateError) throw updateError;
         }
       } else {
-        // 새로운 사용자 프로필 생성 - 짧은 SC ID 생성
         const scId = await this.generateUniqueScId();
-        await setDoc(userRef, {
-          displayName: displayName || "",
-          scId: scId, // 6자리 랜덤 코드
-          createdAt: new Date(),
-        });
+        const { error: insertError } = await supabase.from("users").insert([
+          {
+            auth_id: userId,
+            display_name: displayName || "",
+            sc_id: scId,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+
+        if (insertError) throw insertError;
       }
     } catch (error) {
       console.error("UserService.createOrUpdateUserProfile error:", error);
@@ -104,16 +101,14 @@ export class UserService {
    */
   static async getUserProfile(userId) {
     try {
-      const userRef = doc(this.db, "users", userId);
-      const userSnap = await getDoc(userRef);
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("auth_id", userId)
+        .limit(1);
 
-      if (userSnap.exists()) {
-        return {
-          id: userSnap.id,
-          ...userSnap.data(),
-        };
-      }
-      return null;
+      if (error) throw error;
+      return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       console.error("UserService.getUserProfile error:", error);
       throw error;
@@ -124,10 +119,18 @@ export class UserService {
    * 현재 사용자 프로필
    */
   static async getCurrentUserProfile() {
-    const currentUser = this.auth.currentUser;
-    if (!currentUser) return null;
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) return null;
 
-    return this.getUserProfile(currentUser.uid);
+      return this.getUserProfile(user.id);
+    } catch (error) {
+      console.error("UserService.getCurrentUserProfile error:", error);
+      throw error;
+    }
   }
 
   /**
@@ -135,8 +138,12 @@ export class UserService {
    */
   static async updateDisplayName(userId, displayName) {
     try {
-      const userRef = doc(this.db, "users", userId);
-      await updateDoc(userRef, { displayName });
+      const { error } = await supabase
+        .from("users")
+        .update({ display_name: displayName })
+        .eq("auth_id", userId);
+
+      if (error) throw error;
     } catch (error) {
       console.error("UserService.updateDisplayName error:", error);
       throw error;
@@ -144,14 +151,18 @@ export class UserService {
   }
 
   /**
-   * SC ID 업데이트 (마이그레이션용)
-   * @param {string} userId - Firebase Auth UID
+   * SC ID 업데이트
+   * @param {string} userId - Supabase Auth UID
    * @param {string} newScId - 새로운 SC ID
    */
   static async updateScId(userId, newScId) {
     try {
-      const userRef = doc(this.db, "users", userId);
-      await updateDoc(userRef, { scId: newScId });
+      const { error } = await supabase
+        .from("users")
+        .update({ sc_id: newScId })
+        .eq("auth_id", userId);
+
+      if (error) throw error;
     } catch (error) {
       console.error("UserService.updateScId error:", error);
       throw error;
