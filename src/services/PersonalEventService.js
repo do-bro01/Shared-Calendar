@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { toCamelArray } from "../lib/caseHelpers";
 
 export class PersonalEventService {
   /**
@@ -40,6 +41,20 @@ export class PersonalEventService {
       console.error("PersonalEventService.addPersonalEvent error:", error);
       throw error;
     }
+  }
+
+  /**
+   * 개인 일정의 연결된 그룹 일정 ID 목록 업데이트
+   */
+  static async updateLinkedGroupEventIds(eventId, linkedGroupEventIds) {
+    const { error } = await supabase
+      .from("personal_events")
+      .update({
+        linked_group_event_ids: linkedGroupEventIds,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", eventId);
+    if (error) throw error;
   }
 
   /**
@@ -125,34 +140,47 @@ export class PersonalEventService {
    * 개인 일정 실시간 구독
    */
   static listenPersonalEvents(callback) {
-    try {
-      supabase.auth
-        .getUser()
-        .then(async ({ data: { user }, error: userError }) => {
-          if (userError || !user) throw new Error("로그인되지 않음");
+    let channel;
 
-          const subscription = supabase
-            .from("personal_events")
-            .on("*", async (payload) => {
-              const { data, error } = await supabase
-                .from("personal_events")
-                .select("*")
-                .eq("user_id", user.id);
+    const setup = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) return;
 
-              if (!error && data) {
-                callback(data);
-              }
-            })
-            .subscribe();
+      const fetchAll = async () => {
+        const { data, error } = await supabase
+          .from("personal_events")
+          .select("*")
+          .eq("user_id", user.id);
+        if (!error && data) callback(toCamelArray(data));
+      };
 
-          return () => subscription?.unsubscribe();
-        });
+      await fetchAll();
 
-      return () => {};
-    } catch (error) {
-      console.error("PersonalEventService.listenPersonalEvents error:", error);
-      return () => {};
-    }
+      channel = supabase
+        .channel("personal_events_changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "personal_events",
+            filter: `user_id=eq.${user.id}`,
+          },
+          fetchAll
+        )
+        .subscribe();
+    };
+
+    setup().catch((err) =>
+      console.error("PersonalEventService.listenPersonalEvents error:", err)
+    );
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }
 }
 

@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { toCamel, toCamelArray } from "../lib/caseHelpers";
 
 export class GroupEventService {
   /**
@@ -50,7 +51,7 @@ export class GroupEventService {
         .eq("date", date);
 
       if (error) throw error;
-      return data || [];
+      return toCamelArray(data || []);
     } catch (error) {
       console.error("GroupEventService.getGroupEvents error:", error);
       throw error;
@@ -61,26 +62,31 @@ export class GroupEventService {
    * 특정 단체 달력의 모든 이벤트 실시간 리스너
    */
   static listenGroupEvents(groupCalendarId, callback) {
-    try {
-      const subscription = supabase
+    const fetchAll = async () => {
+      const { data, error } = await supabase
         .from("group_events")
-        .on("*", async (payload) => {
-          const { data, error } = await supabase
-            .from("group_events")
-            .select("*")
-            .eq("group_calendar_id", groupCalendarId);
+        .select("*")
+        .eq("group_calendar_id", groupCalendarId);
+      if (!error && data) callback(toCamelArray(data));
+    };
 
-          if (!error && data) {
-            callback(data);
-          }
-        })
-        .subscribe();
+    fetchAll();
 
-      return () => subscription?.unsubscribe();
-    } catch (error) {
-      console.error("GroupEventService.listenGroupEvents error:", error);
-      return () => {};
-    }
+    const channel = supabase
+      .channel(`group_events_${groupCalendarId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "group_events",
+          filter: `group_calendar_id=eq.${groupCalendarId}`,
+        },
+        fetchAll
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }
 
   /**
@@ -95,7 +101,7 @@ export class GroupEventService {
         .limit(1);
 
       if (error) throw error;
-      return data && data.length > 0 ? data[0] : null;
+      return data && data.length > 0 ? toCamel(data[0]) : null;
     } catch (error) {
       console.error("GroupEventService.getGroupEvent error:", error);
       throw error;

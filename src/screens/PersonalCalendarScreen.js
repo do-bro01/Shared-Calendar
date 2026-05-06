@@ -44,11 +44,10 @@ export default function PersonalCalendarScreen() {
         }
 
         // 개인 일정에 연결된 그룹 일정 ID들 업데이트
-        const { updateDoc, doc } = await import("firebase/firestore");
-        const { getFirestore } = await import("firebase/firestore");
-        const db = getFirestore();
-        const personalEventRef = doc(db, "personalEvents", personalEventId);
-        await updateDoc(personalEventRef, { linkedGroupEventIds });
+        await PersonalEventService.updateLinkedGroupEventIds(
+          personalEventId,
+          linkedGroupEventIds
+        );
       }
 
       Alert.alert("성공", "일정이 추가되었습니다");
@@ -136,13 +135,10 @@ export default function PersonalCalendarScreen() {
       }
 
       // 6. 개인 일정의 linkedGroupEventIds 업데이트
-      const { updateDoc, doc } = await import("firebase/firestore");
-      const { getFirestore } = await import("firebase/firestore");
-      const db = getFirestore();
-      const personalEventRef = doc(db, "personalEvents", eventData.id);
-      await updateDoc(personalEventRef, {
-        linkedGroupEventIds: updatedLinkedGroupEventIds,
-      });
+      await PersonalEventService.updateLinkedGroupEventIds(
+        eventData.id,
+        updatedLinkedGroupEventIds
+      );
 
       Alert.alert("성공", "일정이 수정되었습니다");
     } catch (error) {

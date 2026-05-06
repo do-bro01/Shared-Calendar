@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { userToCamel } from "../lib/caseHelpers";
 
 export class UserService {
   /**
@@ -45,7 +46,7 @@ export class UserService {
         .limit(1);
 
       if (error) throw error;
-      return data && data.length > 0 ? data[0] : null;
+      return data && data.length > 0 ? userToCamel(data[0]) : null;
     } catch (error) {
       console.error("UserService.findUserByScId error:", error);
       throw error;
@@ -108,7 +109,7 @@ export class UserService {
         .limit(1);
 
       if (error) throw error;
-      return data && data.length > 0 ? data[0] : null;
+      return data && data.length > 0 ? userToCamel(data[0]) : null;
     } catch (error) {
       console.error("UserService.getUserProfile error:", error);
       throw error;

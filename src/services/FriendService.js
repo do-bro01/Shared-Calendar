@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { userToCamel } from "../lib/caseHelpers";
 import UserService from "./UserService";
 
 export class FriendService {
@@ -156,7 +157,7 @@ export class FriendService {
         if (!friendError && friendData && friendData.length > 0) {
           friends.push({
             friendshipId: friendship.id,
-            ...friendData[0],
+            ...userToCamel(friendData[0]),
           });
         }
       }
@@ -172,75 +173,42 @@ export class FriendService {
    * 친구 목록 실시간 리스너
    */
   static listenFriendsList(callback) {
-    try {
-      supabase.auth
-        .getUser()
-        .then(async ({ data: { user }, error: userError }) => {
-          if (userError || !user) {
-            callback([]);
-            return;
-          }
+    let channel;
 
-          const subscription = supabase
-            .from("friendships")
-            .on("*", async (payload) => {
-              const { data: friendships, error: friendshipsError } =
-                await supabase
-                  .from("friendships")
-                  .select("*")
-                  .eq("status", "active");
+    const setup = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
+        callback([]);
+        return;
+      }
 
-              if (friendshipsError) {
-                console.error("Error fetching friendships:", friendshipsError);
-                return;
-              }
+      const fetchFriends = async () => {
+        const friends = await FriendService.getFriendsList();
+        callback(friends);
+      };
 
-              const friends = [];
+      await fetchFriends();
 
-              for (const friendship of friendships) {
-                if (
-                  friendship.user1 !== user.id &&
-                  friendship.user2 !== user.id
-                ) {
-                  continue;
-                }
+      channel = supabase
+        .channel("friendships_changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "friendships" },
+          fetchFriends
+        )
+        .subscribe();
+    };
 
-                const friendAuthId =
-                  friendship.user1 === user.id
-                    ? friendship.user2
-                    : friendship.user1;
+    setup().catch((err) =>
+      console.error("FriendService.listenFriendsList error:", err)
+    );
 
-                try {
-                  const { data: friendData, error: friendError } =
-                    await supabase
-                      .from("users")
-                      .select("*")
-                      .eq("auth_id", friendAuthId)
-                      .limit(1);
-
-                  if (!friendError && friendData && friendData.length > 0) {
-                    friends.push({
-                      friendshipId: friendship.id,
-                      ...friendData[0],
-                    });
-                  }
-                } catch (err) {
-                  console.error("Error fetching friend profile:", err);
-                }
-              }
-
-              callback(friends);
-            })
-            .subscribe();
-
-          return () => subscription?.unsubscribe();
-        });
-
-      return () => {};
-    } catch (error) {
-      console.error("FriendService.listenFriendsList error:", error);
-      return () => {};
-    }
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }
 
   /**

@@ -15,7 +15,9 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import { GroupCalendarService } from "../services/GroupCalendarService";
 import { GroupEventService } from "../services/GroupEventService";
+import { PersonalEventService } from "../services/PersonalEventService";
 import { FriendService } from "../services/FriendService";
+import { supabase } from "../lib/supabaseClient";
 import { getKoreanHolidaysForYear } from "../constants/koreanHolidays";
 import CalendarView from "../components/CalendarView";
 
@@ -416,14 +418,14 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
 
   const loadGroupInfo = useCallback(async () => {
     try {
-      const { getAuth } = await import("firebase/auth");
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
 
       const group = await GroupCalendarService.getGroupCalendar(groupId);
       const members = group?.members || [];
       setGroupMembers(members);
-      setIsCreator(currentUser?.uid === group?.createdBy);
+      setIsCreator(currentUser?.id === group?.createdBy);
 
       // 멤버 프로필 동기 로드
       const { UserService } = await import("../services/UserService");
@@ -538,30 +540,13 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
 
   const handleAddEvent = async (eventData) => {
     try {
-      const { getAuth } = await import("firebase/auth");
-      const { getFirestore, collection, addDoc } = await import(
-        "firebase/firestore"
-      );
-
-      const auth = getAuth();
-      const db = getFirestore();
-      const currentUser = auth.currentUser;
-
-      if (!currentUser) {
-        Alert.alert("오류", "로그인이 필요합니다");
-        return;
-      }
-
       // 개인 캘린더에 먼저 일정 추가
-      const personalEventsRef = collection(db, "personalEvents");
-      const personalEventDoc = await addDoc(personalEventsRef, {
+      const personalEventId = await PersonalEventService.addPersonalEvent({
         title: eventData.title,
         date: eventData.date,
         endDate: eventData.endDate || eventData.date,
-        userId: currentUser.uid,
         linkedGroupEventIds: [],
         dotColor: eventData.dotColor,
-        createdAt: new Date(),
       });
 
       // 그룹 캘린더에 일정 추가 (개인 일정과 연결)
@@ -570,16 +555,15 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
         date: eventData.date,
         endDate: eventData.endDate || eventData.date,
         groupCalendarId: groupId,
-        linkedPersonalEventId: personalEventDoc.id,
+        linkedPersonalEventId: personalEventId,
         dotColor: eventData.dotColor,
       });
 
       // 개인 일정에 그룹 일정 ID 연결
-      const { updateDoc, doc } = await import("firebase/firestore");
-      const personalEventRef = doc(db, "personalEvents", personalEventDoc.id);
-      await updateDoc(personalEventRef, {
-        linkedGroupEventIds: [groupEventId],
-      });
+      await PersonalEventService.updateLinkedGroupEventIds(
+        personalEventId,
+        [groupEventId]
+      );
 
       Alert.alert("성공", "일정이 추가되었습니다");
     } catch (error) {
@@ -623,11 +607,11 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
         style: "destructive",
         onPress: async () => {
           try {
-            const { getAuth } = await import("firebase/auth");
-            const auth = getAuth();
-            const currentUser = auth.currentUser;
+            const {
+              data: { user: currentUser },
+            } = await supabase.auth.getUser();
 
-            await GroupCalendarService.removeMember(groupId, currentUser.uid);
+            await GroupCalendarService.removeMember(groupId, currentUser.id);
             Alert.alert("성공", "달력방에서 나왔습니다");
             onBack();
           } catch (error) {

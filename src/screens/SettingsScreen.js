@@ -14,13 +14,12 @@ import {
 } from "react-native";
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-import { getAuth } from "firebase/auth";
+import { supabase } from "../lib/supabaseClient";
 import { UserService } from "../services/UserService";
 import { FriendService } from "../services/FriendService";
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const auth = getAuth();
   const [userProfile, setUserProfile] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -38,9 +37,11 @@ export default function SettingsScreen() {
           setUserProfile(profile);
           setDisplayName(profile.displayName || "");
         } else {
-          const currentUser = auth.currentUser;
+          const {
+            data: { user: currentUser },
+          } = await supabase.auth.getUser();
           if (currentUser) {
-            await UserService.createOrUpdateUserProfile(currentUser.uid);
+            await UserService.createOrUpdateUserProfile(currentUser.id);
             const newProfile = await UserService.getCurrentUserProfile();
             setUserProfile(newProfile);
           }
@@ -59,7 +60,7 @@ export default function SettingsScreen() {
       }
     };
     loadData();
-  }, [auth]);
+  }, []);
 
   const loadFriends = async () => {
     try {
@@ -77,9 +78,11 @@ export default function SettingsScreen() {
     }
 
     try {
-      const currentUser = auth.currentUser;
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
       if (currentUser) {
-        await UserService.updateDisplayName(currentUser.uid, displayName);
+        await UserService.updateDisplayName(currentUser.id, displayName);
         setUserProfile({
           ...userProfile,
           displayName: displayName,

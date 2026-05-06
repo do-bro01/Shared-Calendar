@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { toCamel, toCamelArray } from "../lib/caseHelpers";
 
 export class GroupCalendarService {
   /**
@@ -48,7 +49,7 @@ export class GroupCalendarService {
         .limit(1);
 
       if (error) throw error;
-      return data && data.length > 0 ? data[0] : null;
+      return data && data.length > 0 ? toCamel(data[0]) : null;
     } catch (error) {
       console.error("GroupCalendarService.getGroupCalendar error:", error);
       throw error;
@@ -72,7 +73,7 @@ export class GroupCalendarService {
         .contains("members", [user.id]);
 
       if (error) throw error;
-      return data || [];
+      return toCamelArray(data || []);
     } catch (error) {
       console.error("GroupCalendarService.getUserGroupCalendars error:", error);
       throw error;
@@ -83,40 +84,48 @@ export class GroupCalendarService {
    * 현재 사용자가 속한 단체 달력 목록 실시간 리스너
    */
   static listenUserGroupCalendars(callback) {
-    try {
-      supabase.auth
-        .getUser()
-        .then(async ({ data: { user }, error: userError }) => {
-          if (userError || !user) {
-            callback([]);
-            return;
-          }
+    let channel;
 
-          const subscription = supabase
-            .from("group_calendars")
-            .on("*", async (payload) => {
-              const { data, error } = await supabase
-                .from("group_calendars")
-                .select("*")
-                .contains("members", [user.id]);
+    const setup = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
+        callback([]);
+        return;
+      }
 
-              if (!error && data) {
-                callback(data);
-              }
-            })
-            .subscribe();
+      const fetchAll = async () => {
+        const { data, error } = await supabase
+          .from("group_calendars")
+          .select("*")
+          .contains("members", [user.id]);
+        if (!error && data) callback(toCamelArray(data));
+      };
 
-          return () => subscription?.unsubscribe();
-        });
+      await fetchAll();
 
-      return () => {};
-    } catch (error) {
+      channel = supabase
+        .channel("group_calendars_changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "group_calendars" },
+          fetchAll
+        )
+        .subscribe();
+    };
+
+    setup().catch((err) =>
       console.error(
         "GroupCalendarService.listenUserGroupCalendars error:",
-        error,
-      );
-      return () => {};
-    }
+        err,
+      ),
+    );
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }
 
   /**
