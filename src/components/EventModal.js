@@ -324,6 +324,8 @@ const EventModal = ({
                       padding: 10,
                       borderRadius: 5,
                       border: "1px solid #ccc",
+                      boxSizing: "border-box",
+                      maxWidth: "100%",
                     }}
                   />
                 ) : (
@@ -365,6 +367,8 @@ const EventModal = ({
                       padding: 10,
                       borderRadius: 5,
                       border: "1px solid #ccc",
+                      boxSizing: "border-box",
+                      maxWidth: "100%",
                     }}
                   />
                 ) : (
