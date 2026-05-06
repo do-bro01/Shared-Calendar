@@ -27,6 +27,7 @@ const EventModal = ({
   visible,
   onClose,
   onSave,
+  onDelete,
   defaultDate,
   isShared,
   editMode = false,
@@ -172,6 +173,27 @@ const EventModal = ({
     setSelectedGroups([]);
     setSelectedColor("#395fa5ff");
     onClose();
+  };
+
+  const handleDelete = () => {
+    if (!editMode || !eventToEdit?.id || !onDelete) return;
+
+    const confirmDelete = () => {
+      onDelete(eventToEdit.id);
+      onClose();
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("정말 삭제하시겠습니까?")) {
+        confirmDelete();
+      }
+      return;
+    }
+
+    Alert.alert("일정 삭제", "정말 삭제하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: confirmDelete },
+    ]);
   };
 
   return (
@@ -534,11 +556,22 @@ const EventModal = ({
               style={{
                 flexDirection: "row",
                 justifyContent: "space-between",
+                alignItems: "center",
                 marginTop: 20,
               }}
             >
-              <Button title="취소" onPress={onClose} />
-              <Button title={editMode ? "수정" : "저장"} onPress={handleSave} />
+              {editMode && onDelete ? (
+                <Button title="삭제" color="#da4a47ff" onPress={handleDelete} />
+              ) : (
+                <View />
+              )}
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Button title="취소" onPress={onClose} />
+                <Button
+                  title={editMode ? "수정" : "저장"}
+                  onPress={handleSave}
+                />
+              </View>
             </View>
           </ScrollView>
         </View>

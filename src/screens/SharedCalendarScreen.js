@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert,
   Modal,
+  Platform,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
@@ -573,28 +574,43 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
   };
 
   const handleDeleteGroup = async () => {
+    const doDelete = async () => {
+      try {
+        await GroupCalendarService.deleteGroupCalendar(groupId);
+        if (Platform.OS === "web") {
+          window.alert("달력방이 삭제되었습니다");
+        } else {
+          Alert.alert("성공", "달력방이 삭제되었습니다");
+        }
+        onBack();
+      } catch (error) {
+        console.error("Error deleting group:", error);
+        const message = error.message || "달력방 삭제에 실패했습니다";
+        if (Platform.OS === "web") {
+          window.alert(message);
+        } else {
+          Alert.alert("오류", message);
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(
+          "정말 삭제하시겠습니까? 모든 일정이 함께 삭제됩니다."
+        )
+      ) {
+        doDelete();
+      }
+      return;
+    }
+
     Alert.alert(
       "달력방 삭제",
       "정말 삭제하시겠습니까? 모든 일정이 함께 삭제됩니다.",
       [
         { text: "취소", style: "cancel" },
-        {
-          text: "삭제",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await GroupCalendarService.deleteGroupCalendar(groupId);
-              Alert.alert("성공", "달력방이 삭제되었습니다");
-              onBack();
-            } catch (error) {
-              console.error("Error deleting group:", error);
-              Alert.alert(
-                "오류",
-                error.message || "달력방 삭제에 실패했습니다"
-              );
-            }
-          },
-        },
+        { text: "삭제", style: "destructive", onPress: doDelete },
       ]
     );
   };

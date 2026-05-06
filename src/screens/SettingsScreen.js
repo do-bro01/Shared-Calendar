@@ -11,12 +11,14 @@ import {
   TextInput,
   Alert,
   Modal,
+  Platform,
 } from "react-native";
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import { supabase } from "../lib/supabaseClient";
 import { UserService } from "../services/UserService";
 import { FriendService } from "../services/FriendService";
+import { logout } from "../services/AuthService";
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -94,6 +96,33 @@ export default function SettingsScreen() {
       console.error("Error updating display name:", error);
       Alert.alert("오류", "이름 변경에 실패했습니다");
     }
+  };
+
+  const handleLogout = () => {
+    const doLogout = async () => {
+      try {
+        await logout();
+      } catch (error) {
+        console.error("Error logging out:", error);
+        if (Platform.OS === "web") {
+          window.alert("로그아웃에 실패했습니다");
+        } else {
+          Alert.alert("오류", "로그아웃에 실패했습니다");
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("정말 로그아웃하시겠습니까?")) {
+        doLogout();
+      }
+      return;
+    }
+
+    Alert.alert("로그아웃", "정말 로그아웃하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      { text: "로그아웃", style: "destructive", onPress: doLogout },
+    ]);
   };
 
   const handleRemoveFriend = async (friendId) => {
@@ -368,7 +397,7 @@ export default function SettingsScreen() {
             <SettingsItem
               icon="sign-out"
               title="로그아웃"
-              onPress={() => console.log("로그아웃 처리")}
+              onPress={handleLogout}
             />
           </View>
 

@@ -76,12 +76,7 @@ export class GroupEventService {
       .channel(`group_events_${groupCalendarId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "group_events",
-          filter: `group_calendar_id=eq.${groupCalendarId}`,
-        },
+        { event: "*", schema: "public", table: "group_events" },
         fetchAll
       )
       .subscribe();

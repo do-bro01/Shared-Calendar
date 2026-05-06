@@ -163,12 +163,7 @@ export class PersonalEventService {
         .channel("personal_events_changes")
         .on(
           "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "personal_events",
-            filter: `user_id=eq.${user.id}`,
-          },
+          { event: "*", schema: "public", table: "personal_events" },
           fetchAll
         )
         .subscribe();

@@ -29,48 +29,21 @@ export default function CalendarView({
   const colors = theme?.colors || { tint: "#395fa5ff" };
 
   const handleEventPress = (event) => {
-    const formatDate = (dateStr) => {
-      const date = new Date(dateStr);
-      return `${date.getMonth() + 1}월 ${date.getDate()}일`;
-    };
-    const dateText =
-      event.endDate && event.endDate !== event.date
-        ? `${formatDate(event.date)} ~ ${formatDate(event.endDate)}`
-        : formatDate(event.date);
-
     if (event.isHoliday) {
+      const formatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+      };
+      const dateText =
+        event.endDate && event.endDate !== event.date
+          ? `${formatDate(event.date)} ~ ${formatDate(event.endDate)}`
+          : formatDate(event.date);
       Alert.alert(event.title, dateText, [{ text: "확인", style: "cancel" }]);
       return;
     }
 
-    Alert.alert(event.title, dateText, [
-      { text: "취소", style: "cancel" },
-      {
-        text: "수정",
-        onPress: () => {
-          setEditingEvent(event);
-          setModalVisible(true);
-        },
-      },
-      {
-        text: "삭제",
-        onPress: () => handleDeleteConfirm(event.id),
-        style: "destructive",
-      },
-    ]);
-  };
-
-  const handleDeleteConfirm = (eventId) => {
-    Alert.alert("일정 삭제", "정말 삭제하시겠습니까?", [
-      { text: "취소", onPress: () => {}, style: "cancel" },
-      {
-        text: "삭제",
-        onPress: () => {
-          onDeleteEvent && onDeleteEvent(eventId);
-        },
-        style: "destructive",
-      },
-    ]);
+    setEditingEvent(event);
+    setModalVisible(true);
   };
 
   // 시작일과 종료일 사이의 모든 날짜를 생성하는 함수 (문자열 기반)
@@ -279,15 +252,21 @@ export default function CalendarView({
         eventToEdit={editingEvent}
         onSave={(data) => {
           if (editingEvent) {
-            // 수정 모드
             onEditEvent && onEditEvent(data);
           } else {
-            // 추가 모드
             onAddEvent(data);
           }
           setModalVisible(false);
           setEditingEvent(null);
         }}
+        onDelete={
+          onDeleteEvent
+            ? (eventId) => {
+                onDeleteEvent(eventId);
+                setEditingEvent(null);
+              }
+            : undefined
+        }
       />
     </SafeAreaView>
   );

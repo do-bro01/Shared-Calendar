@@ -4,6 +4,7 @@ import { StatusBar } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { supabase } from "./src/lib/supabaseClient";
+import { UserService } from "./src/services/UserService";
 import ThemeContext, { ThemeProvider } from "./src/context/ThemeContext";
 
 import LoginScreen from "./src/screens/LoginScreen";
@@ -19,8 +20,15 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
+      const nextUser = session?.user || null;
+      setUser(nextUser);
       setLoading(false);
+
+      if (nextUser) {
+        UserService.createOrUpdateUserProfile(nextUser.id).catch((err) =>
+          console.error("Failed to ensure user profile:", err),
+        );
+      }
     });
 
     return () => subscription?.unsubscribe();
