@@ -158,22 +158,35 @@ export default function SettingsScreen() {
   };
 
   const handleRemoveFriend = async (friendId) => {
+    const doRemove = async () => {
+      try {
+        await FriendService.removeFriend(friendId);
+        loadFriends();
+        if (Platform.OS === "web") {
+          window.alert("친구가 삭제되었습니다");
+        } else {
+          Alert.alert("성공", "친구가 삭제되었습니다");
+        }
+      } catch (error) {
+        console.error("Error removing friend:", error);
+        if (Platform.OS === "web") {
+          window.alert("친구 삭제에 실패했습니다");
+        } else {
+          Alert.alert("오류", "친구 삭제에 실패했습니다");
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("정말 친구를 삭제하시겠습니까?")) {
+        doRemove();
+      }
+      return;
+    }
+
     Alert.alert("친구 삭제", "정말 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
-      {
-        text: "삭제",
-        onPress: async () => {
-          try {
-            await FriendService.removeFriend(friendId);
-            loadFriends();
-            Alert.alert("성공", "친구가 삭제되었습니다");
-          } catch (error) {
-            console.error("Error removing friend:", error);
-            Alert.alert("오류", "친구 삭제에 실패했습니다");
-          }
-        },
-        style: "destructive",
-      },
+      { text: "삭제", style: "destructive", onPress: doRemove },
     ]);
   };
 
