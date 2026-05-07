@@ -21,6 +21,7 @@ import { FriendService } from "../services/FriendService";
 import { supabase } from "../lib/supabaseClient";
 import { getKoreanHolidaysForYear } from "../constants/koreanHolidays";
 import CalendarView from "../components/CalendarView";
+import Button from "../components/Button";
 
 export default function SharedCalendarScreen() {
   const theme = useTheme();
@@ -138,12 +139,22 @@ export default function SharedCalendarScreen() {
           <View style={styles.emptyContainer}>
             <MaterialIcons
               name="event"
-              size={64}
+              size={56}
               color={theme.colors.text}
-              style={{ opacity: 0.3, marginBottom: 16 }}
+              style={{ opacity: 0.25, marginBottom: 12 }}
             />
             <Text style={[styles.emptyText, { color: theme.colors.text }]}>
               공유 달력방이 없습니다
+            </Text>
+            <Text
+              style={{
+                fontSize: 13,
+                color: theme.colors.text,
+                opacity: 0.45,
+                marginTop: 6,
+              }}
+            >
+              친구와 일정을 공유할 새 방을 만들어보세요
             </Text>
           </View>
         ) : (
@@ -154,8 +165,9 @@ export default function SharedCalendarScreen() {
                 styles.groupItem,
                 {
                   backgroundColor:
-                    theme.mode === "dark" ? "#222431ff" : "#f5f5f5",
-                  borderColor: theme.colors.tint,
+                    theme.mode === "dark" ? "#222431ff" : "#ffffff",
+                  borderColor:
+                    theme.mode === "dark" ? "#2f3340" : "#ececf2",
                 },
               ]}
               onPress={() => setSelectedGroup(group.id)}
@@ -346,42 +358,26 @@ export default function SharedCalendarScreen() {
 
             {/* 버튼 */}
             <View style={{ flexDirection: "row", gap: 12 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor: "#ccc",
-                  alignItems: "center",
-                }}
-                onPress={() => {
-                  setShowCreateModal(false);
-                  setGroupName("");
-                  setSelectedFriends([]);
-                }}
-              >
-                <Text
-                  style={{ color: "#000", fontSize: 16, fontWeight: "600" }}
-                >
-                  취소
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor: theme.colors.tint,
-                  alignItems: "center",
-                }}
-                onPress={handleCreateGroup}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
-                >
-                  생성
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="취소"
+                  variant="secondary"
+                  onPress={() => {
+                    setShowCreateModal(false);
+                    setGroupName("");
+                    setSelectedFriends([]);
+                  }}
+                  fullWidth
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="생성"
+                  variant="primary"
+                  onPress={handleCreateGroup}
+                  fullWidth
+                />
+              </View>
             </View>
           </View>
         </View>
@@ -934,45 +930,25 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
             </ScrollView>
 
             <View style={{ flexDirection: "row", gap: 10 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor: theme.mode === "dark" ? "#444" : "#e0e0e0",
-                  alignItems: "center",
-                }}
-                onPress={() => {
-                  setInviteModalVisible(false);
-                  setInviteSelections([]);
-                }}
-              >
-                <Text
-                  style={{
-                    color: theme.colors.text,
-                    fontSize: 16,
-                    fontWeight: "600",
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="취소"
+                  variant="secondary"
+                  onPress={() => {
+                    setInviteModalVisible(false);
+                    setInviteSelections([]);
                   }}
-                >
-                  취소
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor: theme.colors.tint,
-                  alignItems: "center",
-                }}
-                onPress={handleInviteFriends}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
-                >
-                  초대하기
-                </Text>
-              </TouchableOpacity>
+                  fullWidth
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="초대하기"
+                  variant="primary"
+                  onPress={handleInviteFriends}
+                  fullWidth
+                />
+              </View>
             </View>
           </View>
         </View>
@@ -1026,11 +1002,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     marginBottom: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#ddd",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   groupInfo: {
     flexDirection: "row",

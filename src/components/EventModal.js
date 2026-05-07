@@ -4,12 +4,12 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   Platform,
   TouchableOpacity,
   ScrollView,
   Alert,
 } from "react-native";
+import Button from "./Button";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { GroupCalendarService } from "../services/GroupCalendarService";
@@ -565,14 +565,26 @@ const EventModal = ({
               }}
             >
               {editMode && onDelete ? (
-                <Button title="삭제" color="#da4a47ff" onPress={handleDelete} />
+                <Button
+                  title="삭제"
+                  variant="danger"
+                  size="sm"
+                  onPress={handleDelete}
+                />
               ) : (
                 <View />
               )}
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <Button title="취소" onPress={onClose} />
+                <Button
+                  title="취소"
+                  variant="ghost"
+                  size="sm"
+                  onPress={onClose}
+                />
                 <Button
                   title={editMode ? "수정" : "저장"}
+                  variant="primary"
+                  size="sm"
                   onPress={handleSave}
                 />
               </View>

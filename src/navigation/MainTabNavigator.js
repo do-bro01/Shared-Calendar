@@ -1,7 +1,7 @@
 // src/navigation/MainTabNavigator.js
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { FontAwesome } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 
 import PersonalCalendarScreen from "../screens/PersonalCalendarScreen";
@@ -33,21 +33,27 @@ export default function MainTabNavigator() {
           right: 16,
           bottom: 12,
           height: 72,
-          borderRadius: 16,
+          borderRadius: 20,
           backgroundColor: colors.background,
           paddingBottom: 8,
           paddingTop: 6,
-          boxShadow: "0 6px 12px rgba(0, 0, 0, 0.08)",
-          elevation: 6,
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: theme.mode === "dark" ? "#2f3340" : "#ececf2",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: theme.mode === "dark" ? 0.25 : 0.06,
+          shadowRadius: 16,
+          elevation: 4,
         },
         tabBarIcon: ({ color, size }) => {
           let iconName;
 
-          if (route.name === "PersonalCalendar") iconName = "calendar";
-          else if (route.name === "SharedCalendar") iconName = "users";
-          else if (route.name === "Settings") iconName = "cog";
+          if (route.name === "PersonalCalendar") iconName = "calendar-today";
+          else if (route.name === "SharedCalendar") iconName = "groups";
+          else if (route.name === "Settings") iconName = "settings";
 
-          return <FontAwesome name={iconName} size={22} color={color} />;
+          return <MaterialIcons name={iconName} size={24} color={color} />;
         },
       })}
     >

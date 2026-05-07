@@ -10,7 +10,9 @@ import {
   Alert,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
+import { MaterialIcons } from "@expo/vector-icons";
 import EventModal from "./EventModal";
+import Button from "./Button";
 import { useTheme } from "../context/ThemeContext";
 
 export default function CalendarView({
@@ -60,50 +62,80 @@ export default function CalendarView({
     return dates;
   };
 
-  // markedDates 생성
+  // markedDates 생성 (multi-period: 여러 날짜를 가로지르는 색 바 형태)
+  // 겹치는 일정은 자동으로 다른 lane에 쌓이도록 greedy lane assignment 적용
   const getMarkedDates = () => {
     const marked = {};
 
-    events.forEach((ev) => {
-      const startDate = ev.date;
-      const endDate = ev.endDate || ev.date;
-      const dateRange = getDateRange(startDate, endDate);
-
-      // 각 날짜마다 점 표시
-      dateRange.forEach((date) => {
-        const isSelected = date === selectedDate;
-
-        // 기존 마킹이 있으면 병합
-        if (!marked[date]) {
-          marked[date] = {
-            dots: [],
-          };
-        }
-
-        // 점 추가
-        if (!marked[date].dots) {
-          marked[date].dots = [];
-        }
-
-        // 일정마다 점 추가 (일정 개수만큼 점 표시)
-        marked[date].dots.push({
-          color: ev.isHoliday ? "#e53935" : ev.dotColor || colors.tint,
-        });
-
-        // 선택된 날짜 표시
-        if (isSelected) {
-          marked[date].selected = true;
-          marked[date].selectedColor = colors.tint;
-        }
-      });
+    // 시작일 빠른 순, 같으면 긴 일정 먼저 (lane 안정적 배치)
+    const sorted = [...events].sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      const aEnd = a.endDate || a.date;
+      const bEnd = b.endDate || b.date;
+      return bEnd.localeCompare(aEnd);
     });
 
-    // 선택된 날짜가 일정이 없으면 추가
+    // lane[i] = 그 lane에서 마지막 일정의 종료일
+    const lanes = [];
+    const eventLane = new Map();
+
+    for (const ev of sorted) {
+      const start = ev.date;
+      const end = ev.endDate || ev.date;
+      let assigned = -1;
+      for (let i = 0; i < lanes.length; i++) {
+        if (lanes[i] < start) {
+          assigned = i;
+          lanes[i] = end;
+          break;
+        }
+      }
+      if (assigned === -1) {
+        assigned = lanes.length;
+        lanes.push(end);
+      }
+      eventLane.set(ev.id, assigned);
+    }
+
+    const totalLanes = lanes.length;
+
+    // 각 날짜에 lane 수만큼 슬롯 만들고, 해당 lane에 period 배치
+    for (const ev of sorted) {
+      const lane = eventLane.get(ev.id);
+      const start = ev.date;
+      const end = ev.endDate || ev.date;
+      const dates = getDateRange(start, end);
+      for (const date of dates) {
+        if (!marked[date]) {
+          marked[date] = { periods: new Array(totalLanes).fill(null) };
+        }
+        if (!marked[date].periods) {
+          marked[date].periods = new Array(totalLanes).fill(null);
+        }
+        while (marked[date].periods.length < totalLanes) {
+          marked[date].periods.push(null);
+        }
+        marked[date].periods[lane] = {
+          startingDay: date === start,
+          endingDay: date === end,
+          color: ev.isHoliday ? "#e53935" : ev.dotColor || colors.tint,
+        };
+      }
+    }
+
+    // 빈 lane은 투명 placeholder로 채워 lane 정렬 유지
+    for (const date in marked) {
+      marked[date].periods = marked[date].periods.map(
+        (p) => p || { color: "transparent" }
+      );
+    }
+
+    // 선택된 날짜
     if (!marked[selectedDate]) {
-      marked[selectedDate] = {
-        selected: true,
-        selectedColor: colors.tint,
-      };
+      marked[selectedDate] = { selected: true, selectedColor: colors.tint };
+    } else {
+      marked[selectedDate].selected = true;
+      marked[selectedDate].selectedColor = colors.tint;
     }
 
     return marked;
@@ -130,25 +162,25 @@ export default function CalendarView({
         <Calendar
           key={theme.mode}
           onDayPress={(day) => onSelectDate(day.dateString)}
-          markingType={"multi-dot"}
+          markingType={"multi-period"}
           markedDates={getMarkedDates()}
           theme={{
-            // calendar background: only apply dark-mode background, keep white in light mode
             calendarBackground:
               theme.mode === "dark" ? theme.colors.background : "#ffffff",
-            // month title (e.g. "December 2025")
             monthTextColor: theme.mode === "dark" ? "#ffffff" : "#000000",
-            // weekday labels (Mon, Tue...)
             textSectionTitleColor:
               theme.mode === "dark" ? "#ffffff" : "#000000",
-            // keep day numbers using theme text color (for contrast)
             textDayColor: theme.colors.text,
             selectedDayBackgroundColor: colors.tint,
             selectedDayTextColor: "#fff",
             todayTextColor: colors.tint,
             todayBackgroundColor: "transparent",
-            // arrow colors for month navigation
-            arrowColor: "#395fa5ff",
+            arrowColor: colors.tint,
+            textMonthFontSize: 18,
+            textMonthFontWeight: "700",
+            textDayFontWeight: "500",
+            textDayHeaderFontWeight: "600",
+            textDayHeaderFontSize: 12,
           }}
         />
       </View>
@@ -166,9 +198,20 @@ export default function CalendarView({
           const endDate = ev.endDate || ev.date;
           return selectedDate >= startDate && selectedDate <= endDate;
         }).length === 0 ? (
-          <Text style={[styles.noEvent, { color: theme.colors.text }]}>
-            일정 없음
-          </Text>
+          <View style={styles.emptyState}>
+            <MaterialIcons
+              name="event-available"
+              size={40}
+              color={theme.colors.text}
+              style={{ opacity: 0.3 }}
+            />
+            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              일정 없음
+            </Text>
+            <Text style={[styles.emptyHint, { color: theme.colors.text }]}>
+              아래 버튼으로 새 일정을 추가해보세요
+            </Text>
+          </View>
         ) : (
           events
             .filter((ev) => {
@@ -232,12 +275,16 @@ export default function CalendarView({
       </ScrollView>
 
       {/* 일정 추가 버튼 */}
-      <TouchableOpacity
-        style={[styles.addButton, { backgroundColor: colors.tint }]}
-        onPress={() => setModalVisible(true)}
-      >
-        <Text style={styles.addButtonText}>일정 추가</Text>
-      </TouchableOpacity>
+      <View style={styles.addButtonWrapper}>
+        <Button
+          title="일정 추가"
+          variant="primary"
+          size="lg"
+          onPress={() => setModalVisible(true)}
+          icon={<MaterialIcons name="add" size={18} color="#fff" />}
+          fullWidth
+        />
+      </View>
 
       {/* Event Modal */}
       <EventModal
@@ -308,6 +355,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   eventList: {
     flex: 1,
@@ -320,15 +372,35 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textAlign: "center",
   },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    opacity: 0.6,
+  },
+  emptyHint: {
+    fontSize: 13,
+    opacity: 0.4,
+  },
   eventItem: {
-    padding: 12,
+    padding: 14,
     backgroundColor: "#EEE",
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 10,
     marginHorizontal: 0,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   eventContent: {
     flex: 1,
@@ -341,17 +413,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.7,
   },
-  addButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
+  addButtonWrapper: {
     marginTop: 0,
     marginBottom: 110,
     marginHorizontal: 30,
-  },
-  addButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "700",
   },
 });

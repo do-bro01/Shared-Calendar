@@ -13,7 +13,7 @@ import {
   Modal,
   Platform,
 } from "react-native";
-import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import { supabase } from "../lib/supabaseClient";
 import { UserService } from "../services/UserService";
@@ -222,7 +222,7 @@ export default function SettingsScreen() {
       disabled={isToggle && !onValueChange}
     >
       <View style={styles.itemContent}>
-        <FontAwesome
+        <MaterialIcons
           name={icon}
           size={24}
           color={theme.colors.tint}
@@ -235,10 +235,16 @@ export default function SettingsScreen() {
       {isToggle ? (
         <Switch
           trackColor={{ false: "#767577", true: theme.colors.tint }}
-          thumbColor={value ? "#f4f3f4" : "#f4f3f4"}
+          thumbColor="#ffffff"
           ios_backgroundColor="#3e3e3e"
           onValueChange={onValueChange}
           value={value}
+          activeThumbColor="#ffffff"
+          style={
+            Platform.OS === "web"
+              ? { accentColor: theme.colors.tint }
+              : undefined
+          }
         />
       ) : (
         <MaterialIcons name="keyboard-arrow-right" size={24} color="#aaa" />
@@ -287,8 +293,8 @@ export default function SettingsScreen() {
               ]}
             >
               <View style={styles.itemContent}>
-                <FontAwesome
-                  name="key"
+                <MaterialIcons
+                  name="vpn-key"
                   size={24}
                   color={theme.colors.tint}
                   style={styles.icon}
@@ -337,8 +343,8 @@ export default function SettingsScreen() {
                 }}
               >
                 <View style={styles.itemContent}>
-                  <FontAwesome
-                    name="user-circle"
+                  <MaterialIcons
+                    name="account-circle"
                     size={24}
                     color={theme.colors.tint}
                     style={styles.icon}
@@ -423,7 +429,7 @@ export default function SettingsScreen() {
             </View>
 
             <SettingsItem
-              icon="sign-out"
+              icon="logout"
               title="로그아웃"
               onPress={handleLogout}
             />
@@ -508,22 +514,38 @@ export default function SettingsScreen() {
           >
             {friends.length === 0 ? (
               <View
-                style={[
-                  styles.settingItem,
-                  {
-                    backgroundColor: theme.colors.background,
-                    justifyContent: "center",
-                  },
-                ]}
+                style={{
+                  backgroundColor: theme.colors.background,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 28,
+                  gap: 6,
+                }}
               >
+                <MaterialIcons
+                  name="people-outline"
+                  size={36}
+                  color={theme.colors.text}
+                  style={{ opacity: 0.3 }}
+                />
                 <Text
                   style={{
                     color: theme.colors.text,
                     opacity: 0.6,
-                    textAlign: "center",
+                    fontSize: 15,
+                    fontWeight: "600",
                   }}
                 >
                   친구가 없습니다
+                </Text>
+                <Text
+                  style={{
+                    color: theme.colors.text,
+                    opacity: 0.4,
+                    fontSize: 12,
+                  }}
+                >
+                  + 버튼으로 SC ID를 입력해 친구를 추가하세요
                 </Text>
               </View>
             ) : (
@@ -544,8 +566,8 @@ export default function SettingsScreen() {
                   ]}
                 >
                   <View style={styles.itemContent}>
-                    <FontAwesome
-                      name="user"
+                    <MaterialIcons
+                      name="person"
                       size={20}
                       color={theme.colors.tint}
                       style={styles.icon}
@@ -588,7 +610,7 @@ export default function SettingsScreen() {
             ]}
           >
             <SettingsItem
-              icon="moon-o"
+              icon="dark-mode"
               title="다크 모드"
               isToggle={true}
               value={theme.mode === "dark"}
@@ -607,17 +629,17 @@ export default function SettingsScreen() {
             ]}
           >
             <SettingsItem
-              icon="info-circle"
+              icon="info-outline"
               title="앱 정보"
               onPress={() => console.log("앱 정보 페이지")}
             />
             <SettingsItem
-              icon="file-text"
+              icon="description"
               title="개인정보 보호 정책"
               onPress={() => console.log("개인정보 정책 보기")}
             />
             <SettingsItem
-              icon="question-circle"
+              icon="help-outline"
               title="고객 지원"
               onPress={() => console.log("고객 지원 페이지")}
             />
@@ -771,20 +793,25 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#395fa5ff",
-    marginTop: 15,
+    marginTop: 16,
     marginBottom: 8,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   section: {
     backgroundColor: "#fff",
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: "hidden",
-    boxShadow: "0 2px 3px rgba(0, 0, 0, 0.05)",
-    elevation: 2,
     marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   settingItem: {
     flexDirection: "row",
