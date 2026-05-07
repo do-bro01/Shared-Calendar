@@ -201,6 +201,16 @@ export class GroupCalendarService {
         throw new Error("권한이 없습니다");
       }
 
+      // 자기 자신 제거(나가기)는 SECURITY DEFINER RPC를 사용해 RLS WITH CHECK 회피
+      if (memberId === user.id) {
+        const { error: rpcError } = await supabase.rpc(
+          "leave_group_calendar",
+          { group_id: groupId },
+        );
+        if (rpcError) throw rpcError;
+        return;
+      }
+
       const updatedMembers = groupData.members.filter((id) => id !== memberId);
 
       const { error: updateError } = await supabase
