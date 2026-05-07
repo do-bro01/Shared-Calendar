@@ -145,6 +145,11 @@ export default function CalendarView({
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
       <Text
         style={[
           isShared ? styles.headerTitleShared : styles.headerTitle,
@@ -189,7 +194,7 @@ export default function CalendarView({
         🗓️ {selectedDate} 일정
       </Text>
 
-      <ScrollView
+      <View
         style={[styles.eventList, { backgroundColor: theme.colors.background }]}
       >
         {events.filter((ev) => {
@@ -272,9 +277,10 @@ export default function CalendarView({
               );
             })
         )}
+      </View>
       </ScrollView>
 
-      {/* 일정 추가 버튼 */}
+      {/* 일정 추가 버튼 (스크롤 영역 바깥, 하단 고정) */}
       <View style={styles.addButtonWrapper}>
         <Button
           title="일정 추가"
@@ -322,7 +328,10 @@ export default function CalendarView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 16,
+    paddingBottom: 24,
   },
   headerTitle: {
     fontSize: 30,
@@ -362,7 +371,6 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   eventList: {
-    flex: 1,
     marginTop: 8,
     marginBottom: 12,
   },
