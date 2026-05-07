@@ -403,7 +403,6 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteSelections, setInviteSelections] = useState([]);
   const [membersModalVisible, setMembersModalVisible] = useState(false);
-  const [isCreator, setIsCreator] = useState(false);
   const holidayEvents = [
     ...getKoreanHolidaysForYear(new Date().getFullYear()),
     ...getKoreanHolidaysForYear(new Date().getFullYear() + 1),
@@ -419,14 +418,9 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
 
   const loadGroupInfo = useCallback(async () => {
     try {
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-
       const group = await GroupCalendarService.getGroupCalendar(groupId);
       const members = group?.members || [];
       setGroupMembers(members);
-      setIsCreator(currentUser?.id === group?.createdBy);
 
       // 멤버 프로필 동기 로드
       const { UserService } = await import("../services/UserService");
@@ -616,29 +610,40 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
   };
 
   const handleLeaveGroup = async () => {
+    const doLeave = async () => {
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
+        await GroupCalendarService.removeMember(groupId, currentUser.id);
+        if (Platform.OS === "web") {
+          window.alert("달력방에서 나왔습니다");
+        } else {
+          Alert.alert("성공", "달력방에서 나왔습니다");
+        }
+        onBack();
+      } catch (error) {
+        console.error("Error leaving group:", error);
+        const message = error.message || "달력방 나가기에 실패했습니다";
+        if (Platform.OS === "web") {
+          window.alert(message);
+        } else {
+          Alert.alert("오류", message);
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("정말 나가시겠습니까?")) {
+        doLeave();
+      }
+      return;
+    }
+
     Alert.alert("달력방 나가기", "정말 나가시겠습니까?", [
       { text: "취소", style: "cancel" },
-      {
-        text: "나가기",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const {
-              data: { user: currentUser },
-            } = await supabase.auth.getUser();
-
-            await GroupCalendarService.removeMember(groupId, currentUser.id);
-            Alert.alert("성공", "달력방에서 나왔습니다");
-            onBack();
-          } catch (error) {
-            console.error("Error leaving group:", error);
-            Alert.alert(
-              "오류",
-              error.message || "달력방 나가기에 실패했습니다"
-            );
-          }
-        },
-      },
+      { text: "나가기", style: "destructive", onPress: doLeave },
     ]);
   };
 
@@ -668,11 +673,13 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
           />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={isCreator ? handleDeleteGroup : handleLeaveGroup}
+          onPress={
+            groupMembers.length <= 1 ? handleDeleteGroup : handleLeaveGroup
+          }
           style={{ padding: 8 }}
         >
           <MaterialIcons
-            name={isCreator ? "delete" : "exit-to-app"}
+            name={groupMembers.length <= 1 ? "delete" : "exit-to-app"}
             size={24}
             color="#395fa5ff"
           />

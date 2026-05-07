@@ -238,8 +238,14 @@ export class GroupCalendarService {
         throw new Error("달력방을 찾을 수 없습니다");
 
       const groupData = group[0];
-      if (user.id !== groupData.created_by) {
+      const members = groupData.members || [];
+      if (!members.includes(user.id)) {
         throw new Error("권한이 없습니다");
+      }
+      if (members.length > 1) {
+        throw new Error(
+          "다른 멤버가 남아있어 삭제할 수 없습니다. 먼저 방에서 나가주세요"
+        );
       }
 
       const { data: events, error: eventsError } = await supabase
