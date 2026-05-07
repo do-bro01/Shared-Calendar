@@ -17,7 +17,7 @@ export class GroupCalendarService {
 
       const members = Array.from(new Set([user.id, ...memberIds]));
 
-      const { error: insertError } = await supabase
+      const { data, error: insertError } = await supabase
         .from("group_calendars")
         .insert([
           {
@@ -27,10 +27,12 @@ export class GroupCalendarService {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
-        ]);
+        ])
+        .select("id")
+        .single();
 
       if (insertError) throw insertError;
-      return true;
+      return data?.id;
     } catch (error) {
       console.error("GroupCalendarService.createGroupCalendar error:", error);
       throw error;
