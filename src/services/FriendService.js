@@ -20,11 +20,16 @@ export class FriendService {
         throw new Error("존재하지 않는 SC ID입니다");
       }
 
-      if (user.id === targetUser.auth_id) {
+      const targetAuthId = targetUser.authId;
+      if (!targetAuthId) {
+        throw new Error("대상 사용자 정보가 올바르지 않습니다");
+      }
+
+      if (user.id === targetAuthId) {
         throw new Error("자신을 친구로 추가할 수 없습니다");
       }
 
-      const [user1, user2] = [user.id, targetUser.auth_id].sort();
+      const [user1, user2] = [user.id, targetAuthId].sort();
       const friendshipId = `${user1}_${user2}`;
 
       const { data: existing, error: checkError } = await supabase
@@ -147,6 +152,8 @@ export class FriendService {
 
         const friendAuthId =
           friendship.user1 === user.id ? friendship.user2 : friendship.user1;
+
+        if (!friendAuthId) continue;
 
         const { data: friendData, error: friendError } = await supabase
           .from("users")

@@ -98,6 +98,38 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleCopyScId = async () => {
+    const scId = userProfile?.scId;
+    if (!scId) return;
+
+    try {
+      if (Platform.OS === "web") {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(scId);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = scId;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        window.alert(`SC ID가 복사되었습니다: ${scId}`);
+      } else {
+        Alert.alert("SC ID", scId, [{ text: "확인", style: "cancel" }]);
+      }
+    } catch (error) {
+      console.error("Failed to copy SC ID:", error);
+      if (Platform.OS === "web") {
+        window.alert(`복사에 실패했습니다. SC ID: ${scId}`);
+      } else {
+        Alert.alert("SC ID", scId);
+      }
+    }
+  };
+
   const handleLogout = () => {
     const doLogout = async () => {
       try {
@@ -279,11 +311,7 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert("SC ID 복사됨", userProfile?.scId || "");
-                }}
-              >
+              <TouchableOpacity onPress={handleCopyScId}>
                 <MaterialIcons name="content-copy" size={20} color="#aaa" />
               </TouchableOpacity>
             </View>
