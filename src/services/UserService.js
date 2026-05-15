@@ -151,24 +151,6 @@ export class UserService {
     }
   }
 
-  /**
-   * SC ID 업데이트
-   * @param {string} userId - Supabase Auth UID
-   * @param {string} newScId - 새로운 SC ID
-   */
-  static async updateScId(userId, newScId) {
-    try {
-      const { error } = await supabase
-        .from("users")
-        .update({ sc_id: newScId })
-        .eq("auth_id", userId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("UserService.updateScId error:", error);
-      throw error;
-    }
-  }
 }
 
 export default UserService;

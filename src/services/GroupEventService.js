@@ -40,25 +40,6 @@ export class GroupEventService {
   }
 
   /**
-   * 특정 단체 달력의 특정 날짜 이벤트 조회
-   */
-  static async getGroupEvents(groupCalendarId, date) {
-    try {
-      const { data, error } = await supabase
-        .from("group_events")
-        .select("*")
-        .eq("group_calendar_id", groupCalendarId)
-        .eq("date", date);
-
-      if (error) throw error;
-      return toCamelArray(data || []);
-    } catch (error) {
-      console.error("GroupEventService.getGroupEvents error:", error);
-      throw error;
-    }
-  }
-
-  /**
    * 특정 단체 달력의 모든 이벤트 실시간 리스너
    */
   static listenGroupEvents(groupCalendarId, callback) {

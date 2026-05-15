@@ -40,7 +40,7 @@ v1.0에서 제외:
 | 개인 일정 (Personal Event) | 본인만 보는 일정. |
 | 공유 일정 (Group Event) | 특정 달력방의 멤버 모두가 보는 일정. |
 | 일정 연결 | 하나의 일정을 개인 캘린더와 공유 달력방에 동시 등록하는 기능. 한쪽 삭제 시 연결된 다른 쪽도 함께 삭제됨. |
-| 생성자 (Creator) | 달력방을 만든 사용자. 방 이름 변경 / 방 삭제 등 일부 권한이 추가로 부여됨. |
+| 생성자 (Creator) | 달력방을 만든 사용자 (`created_by`). v1.0에서는 다른 멤버를 강제 제거할 수 있는 권한이 있고, 그 외 권한은 일반 멤버와 동일. |
 
 ---
 
@@ -52,7 +52,7 @@ v1.0에서 제외:
 |------|------|---------|
 | 비로그인 사용자 | 로그인 화면만 접근 가능 | Google OAuth 로그인 |
 | 로그인 사용자 | 모든 기능 사용 가능. 단일 역할 모델. | 본인 일정/친구 CRUD, 가입한 달력방 일정 CRUD |
-| 달력방 생성자 | 로그인 사용자의 부분집합. 자신이 만든 방에 한해 추가 권한 보유. | 방 이름 변경, 방 삭제(혼자 남았을 때만) |
+| 달력방 생성자 | 로그인 사용자의 부분집합. 자신이 만든 방에 한해 다른 멤버 강제 제거 가능. | 다른 멤버 제거 (UI는 멤버 1명만 남았을 때 삭제 버튼 노출) |
 
 > RLS(Row Level Security)로 모든 권한이 DB 레벨에서 강제됨. 클라이언트 검증은 UX 보조 수단.
 
@@ -77,7 +77,7 @@ v1.0에서 제외:
 1. 팀 프로젝트가 끝나 달력방이 더 이상 필요 없어짐.
 2. 멤버들이 한 명씩 "방 나가기"를 수행 → `leave_group_calendar` RPC가 호출되어 해당 사용자가 멤버 목록에서 제거됨.
 3. 마지막 한 명이 남으면 "방 삭제" 버튼이 활성화 → 방과 모든 공유 일정이 함께 삭제됨.
-4. 중간에 생성자가 먼저 나간 경우에도 남은 멤버가 자율적으로 정리 가능 (생성자 권한은 방 이름 변경에만 영향).
+4. 중간에 생성자가 먼저 나간 경우에도 남은 멤버가 자율적으로 정리 가능 (마지막 1명이 되면 누구든 삭제할 수 있음).
 
 ### 예외 / 오류 케이스
 - **자기 자신 친구 추가**: 차단 ("자신을 친구로 추가할 수 없습니다").
@@ -142,15 +142,7 @@ v1.0에서 제외:
 - **예외 처리**: 본인이 본인을 제거(=나가기)는 RLS의 WITH CHECK를 회피하기 위해 `leave_group_calendar` SECURITY DEFINER RPC 사용.
 - **UI/UX 메모**: 나가기 시 확인 다이얼로그.
 
-### 3.7 달력방 이름 변경
-- **목적**: 방의 의미가 바뀌었을 때 이름 갱신.
-- **접근 권한**: 생성자만.
-- **입력**: groupId, newName.
-- **출력/결과**: `group_calendars.name` 업데이트.
-- **예외 처리**: 생성자가 아니면 "권한이 없습니다".
-- **UI/UX 메모**: 설정 화면에서 인라인 편집.
-
-### 3.8 달력방 삭제
+### 3.7 달력방 삭제
 - **목적**: 사용 종료된 방 정리.
 - **접근 권한**: 방의 마지막 남은 멤버. (RLS는 생성자만 허용하지만, 클라이언트는 멤버 수가 1일 때만 허용)
 - **입력**: groupId.
@@ -158,7 +150,7 @@ v1.0에서 제외:
 - **예외 처리**: 다른 멤버가 남아있으면 차단 ("먼저 방에서 나가주세요").
 - **UI/UX 메모**: 모든 일정이 삭제된다는 점을 강하게 경고.
 
-### 3.9 공유 일정 CRUD
+### 3.8 공유 일정 CRUD
 - **목적**: 달력방 멤버 모두가 공유하는 일정 관리.
 - **접근 권한**: 방의 모든 멤버 (RLS에서 검증).
 - **입력**: title, date, endDate, groupCalendarId, linkedPersonalEventId(옵션), dotColor(옵션).
@@ -166,7 +158,7 @@ v1.0에서 제외:
 - **예외 처리**: 연결된 개인 일정 있으면 함께 삭제(cascade).
 - **UI/UX 메모**: 일정 작성자(`user_id`)를 함께 표시해 누가 만든 일정인지 식별.
 
-### 3.10 개인 ↔ 공유 일정 연결
+### 3.9 개인 ↔ 공유 일정 연결
 - **목적**: 같은 약속을 두 곳에 중복 입력하지 않고 한 번에 등록.
 - **접근 권한**: 일정 작성자.
 - **입력**: 일정 추가 시 "공유 달력방에도 추가" 옵션 선택.
@@ -176,7 +168,7 @@ v1.0에서 제외:
 - **예외 처리**: 한쪽 삭제 시 반대쪽도 cascade 삭제. 무한 루프 방지를 위해 `skipCascade` 플래그.
 - **UI/UX 메모**: 연결된 일정은 시각적으로 다르게 표시 (예: 작은 링크 아이콘).
 
-### 3.11 실시간 동기화
+### 3.10 실시간 동기화
 - **목적**: 친구가 일정을 추가하면 본인 화면에 즉시 반영.
 - **접근 권한**: 모든 로그인 사용자(자신이 볼 수 있는 데이터에 한해).
 - **입력**: 없음 (자동 구독).
@@ -184,7 +176,7 @@ v1.0에서 제외:
 - **예외 처리**: 구독 채널 이탈 시 cleanup으로 `removeChannel` 호출.
 - **UI/UX 메모**: 별도 새로고침 버튼 불필요.
 
-### 3.12 다크 모드
+### 3.11 다크 모드
 - **목적**: 야간 사용 시 눈의 피로 감소 + 사용자 취향.
 - **접근 권한**: 로그인 사용자 (개인 설정).
 - **입력**: 설정 화면의 토글.
@@ -321,25 +313,25 @@ auth.users  1:N ──► personal_events  ──── linked_group_event_ids: 
 |--------|------|------|------|
 | `signInWithGoogle()` | Google OAuth 로그인 (웹/모바일 분기) | — | Supabase Session |
 | `logout()` | 로그아웃 | — | void |
-| `getCurrentUser()` | 현재 사용자 (auth) 조회 | — | `auth.user` 또는 null |
 
-### 5.2 UserService (참고)
+### 5.2 UserService
 
 | 메서드 | 설명 |
 |--------|------|
+| `generateUniqueScId()` | 충돌하지 않는 6자리 SC ID 생성 |
 | `findUserByScId(scId)` | 6자리 SC ID로 사용자 조회 |
-| (프로필 업데이트 등) | display_name 등 업데이트 |
+| `createOrUpdateUserProfile(userId, displayName)` | 프로필 자동 생성 또는 displayName 업데이트 |
+| `getUserProfile(userId)` | 임의 사용자 프로필 조회 |
+| `getCurrentUserProfile()` | 현재 로그인 사용자 프로필 |
+| `updateDisplayName(userId, displayName)` | 표시 이름 업데이트 |
 
 ### 5.3 FriendService
 
 | 메서드 | 설명 | 권한 검증 |
 |--------|------|----------|
 | `addFriendByScId(scId)` | SC ID로 친구 추가 (자기/중복/없는 ID 검증) | 클라이언트 + RLS |
-| `addFriend(targetUserId)` | (레거시) UID 기반 친구 추가 | 클라이언트 + RLS |
 | `removeFriend(friendUserId)` | 친구 삭제 | RLS |
 | `getFriendsList()` | 친구 목록 조회 | RLS |
-| `listenFriendsList(cb)` | 친구 목록 실시간 구독 | RLS |
-| `isFriend(userId)` | 친구 관계 여부 확인 | RLS |
 
 ### 5.4 GroupCalendarService
 
@@ -348,18 +340,15 @@ auth.users  1:N ──► personal_events  ──── linked_group_event_ids: 
 | `createGroupCalendar(name, memberIds)` | 달력방 생성 (생성자 자동 포함) | RLS |
 | `getGroupCalendar(groupId)` | 방 정보 단건 조회 | RLS |
 | `getUserGroupCalendars()` | 가입한 방 목록 | RLS |
-| `listenUserGroupCalendars(cb)` | 가입한 방 목록 실시간 구독 | RLS |
 | `addMember(groupId, memberId)` | 멤버 추가 | 멤버만 (클라이언트 + RLS) |
 | `removeMember(groupId, memberId)` | 멤버 제거. 본인 제거는 RPC 호출. | 생성자 또는 본인 |
-| `deleteGroupCalendar(groupId)` | 방+모든 일정 삭제 | 생성자 + 혼자 남았을 때 |
-| `updateGroupCalendarName(groupId, newName)` | 방 이름 변경 | 생성자만 |
+| `deleteGroupCalendar(groupId)` | 방+모든 일정 삭제 | 멤버 1명만 남았을 때 |
 
 ### 5.5 GroupEventService
 
 | 메서드 | 설명 |
 |--------|------|
 | `addEventToGroup(event)` | 공유 일정 추가 (linkedPersonalEventId 옵션) |
-| `getGroupEvents(groupCalendarId, date)` | 특정 날짜 일정 조회 |
 | `listenGroupEvents(groupCalendarId, cb)` | 방 전체 일정 실시간 구독 |
 | `getGroupEvent(eventId)` | 일정 단건 조회 |
 | `updateGroupEvent(eventId, fields)` | 일정 수정 |
@@ -411,8 +400,8 @@ auth.users  1:N ──► personal_events  ──── linked_group_event_ids: 
 
 | 영역 | 선택 |
 |------|------|
-| 프론트엔드 | React Native + Expo (`expo-router` 사용), Web 빌드 (`react-native-web`) |
-| 상태/네비게이션 | React Navigation (Stack + Bottom Tabs), Context API (테마) |
+| 프론트엔드 | React Native + Expo, Web 빌드 (`react-native-web`) |
+| 상태/네비게이션 | React Navigation (Native Stack + Bottom Tabs), Context API (테마) |
 | 캘린더 UI | `react-native-calendars` |
 | 백엔드 | Supabase (Auth + Postgres + Realtime) — 별도 서버 없음 |
 | 인증 | Supabase Auth (Google OAuth) |
@@ -444,6 +433,7 @@ auth.users  1:N ──► personal_events  ──── linked_group_event_ids: 
 - [ ] 반복 일정 (RRULE) 지원.
 - [ ] 모바일 앱 정식 배포 (App Store / Play Store).
 - [ ] 일정 작성자 표시 UI 구현 (`group_events.user_id` 활용).
+- [ ] 달력방 이름 변경 기능 (스키마는 `name` 필드 지원, 서비스/UI 미구현).
 - [ ] SC ID 재발급 기능 (현재는 1회 발급 후 변경 불가).
 
 ---
@@ -453,3 +443,4 @@ auth.users  1:N ──► personal_events  ──── linked_group_event_ids: 
 | 날짜 | 버전 | 변경 내용 | 작성자 |
 |------|------|---------|------|
 | 2026-05-07 | v1.0 | 최초 작성 (구현 후 역으로 정리) | do-bro01 |
+| 2026-05-15 | v1.0.1 | MVP 정리: 미구현된 "달력방 이름 변경" 기능 명세를 미결 사항으로 이동, 사용하지 않는 서비스 메서드(`getCurrentUser`, `addFriend`(레거시), `listenFriendsList`, `isFriend`, `listenUserGroupCalendars`, `updateGroupCalendarName`, `getGroupEvents`, `updateScId`) 제거에 따른 API 명세 업데이트, 기술 스택의 `expo-router` 표기 정정. | do-bro01 |

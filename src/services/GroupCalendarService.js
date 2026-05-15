@@ -83,54 +83,6 @@ export class GroupCalendarService {
   }
 
   /**
-   * 현재 사용자가 속한 단체 달력 목록 실시간 리스너
-   */
-  static listenUserGroupCalendars(callback) {
-    let channel;
-
-    const setup = async () => {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) {
-        callback([]);
-        return;
-      }
-
-      const fetchAll = async () => {
-        const { data, error } = await supabase
-          .from("group_calendars")
-          .select("*")
-          .contains("members", [user.id]);
-        if (!error && data) callback(toCamelArray(data));
-      };
-
-      await fetchAll();
-
-      channel = supabase
-        .channel("group_calendars_changes")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "group_calendars" },
-          fetchAll
-        )
-        .subscribe();
-    };
-
-    setup().catch((err) =>
-      console.error(
-        "GroupCalendarService.listenUserGroupCalendars error:",
-        err,
-      ),
-    );
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }
-
-  /**
    * 단체 달력에 멤버 추가
    */
   static async addMember(groupId, memberId) {
@@ -288,49 +240,6 @@ export class GroupCalendarService {
     }
   }
 
-  /**
-   * 단체 달력 이름 수정
-   */
-  static async updateGroupCalendarName(groupId, newName) {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) throw new Error("로그인되지 않음");
-
-      const { data: group, error: fetchError } = await supabase
-        .from("group_calendars")
-        .select("*")
-        .eq("id", groupId)
-        .limit(1);
-
-      if (fetchError) throw fetchError;
-      if (!group || group.length === 0)
-        throw new Error("달력방을 찾을 수 없습니다");
-
-      const groupData = group[0];
-      if (user.id !== groupData.created_by) {
-        throw new Error("권한이 없습니다");
-      }
-
-      const { error: updateError } = await supabase
-        .from("group_calendars")
-        .update({
-          name: newName,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", groupId);
-
-      if (updateError) throw updateError;
-    } catch (error) {
-      console.error(
-        "GroupCalendarService.updateGroupCalendarName error:",
-        error,
-      );
-      throw error;
-    }
-  }
 }
 
 export default GroupCalendarService;

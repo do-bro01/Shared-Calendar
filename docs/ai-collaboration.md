@@ -47,7 +47,7 @@
 - **해결책 B**: `SECURITY DEFINER` 함수(RPC)를 만들어 RLS를 우회하되 함수 내부에서 직접 권한 검사.
 
 **선택과 결과**
-B를 선택. RLS를 너무 느슨하게 하면 **다른 멤버를 강제로 빼는 공격 벡터**가 생길 위험이 있어서. 결과물: [supabase/migrations/leave_group_calendar_rpc.sql](supabase/migrations/leave_group_calendar_rpc.sql) — 함수 내부에서 `auth.uid()` 검증 + `array_remove`. 클라이언트에서는 [src/services/GroupCalendarService.js:204-211](src/services/GroupCalendarService.js#L204-L211)에서 본인 제거일 때만 RPC 분기.
+B를 선택. RLS를 너무 느슨하게 하면 **다른 멤버를 강제로 빼는 공격 벡터**가 생길 위험이 있어서. 결과물: [supabase/migrations/leave_group_calendar_rpc.sql](../supabase/migrations/leave_group_calendar_rpc.sql) — 함수 내부에서 `auth.uid()` 검증 + `array_remove`. 클라이언트에서는 [src/services/GroupCalendarService.js](../src/services/GroupCalendarService.js)의 `removeMember` 메서드 안에서 본인 제거일 때만 RPC 분기.
 
 **검증**
 - A 멤버가 본인 나가기 → 성공. B 멤버 변동 없음 (Supabase 대시보드 SQL로 직접 확인).
@@ -71,8 +71,8 @@ B를 선택. RLS를 너무 느슨하게 하면 **다른 멤버를 강제로 빼�
 
 **선택과 결과**
 적용 위치:
-- [src/services/PersonalEventService.js:96-137](src/services/PersonalEventService.js#L96-L137) `deletePersonalEvent(eventId, skipCascade=false)`
-- [src/services/GroupEventService.js:139-181](src/services/GroupEventService.js#L139-L181) `deleteGroupEvent(eventId, skipCascade=false)`
+- [src/services/PersonalEventService.js](../src/services/PersonalEventService.js) `deletePersonalEvent(eventId, skipCascade=false)`
+- [src/services/GroupEventService.js](../src/services/GroupEventService.js) `deleteGroupEvent(eventId, skipCascade=false)`
 
 **검증**
 - 연결된 일정 한쪽 삭제 → 반대쪽도 정확히 1번 삭제됨 (Supabase 로그 확인).
@@ -95,7 +95,7 @@ B를 선택. RLS를 너무 느슨하게 하면 **다른 멤버를 강제로 빼�
 - 무차별 검색 방지를 위해 별도 rate limit 권장 (현재는 미적용).
 
 **선택과 결과**
-[supabase/migrations/shared_calendar_initial_schema.sql:14-18](supabase/migrations/shared_calendar_initial_schema.sql#L14-L18) — `sc_id varchar(6) not null unique`. 최종적으로 OAuth 로그인 시 사용자 프로필 자동 생성에서 SC ID 발급 로직 통합.
+[supabase/migrations/shared_calendar_initial_schema.sql](../supabase/migrations/shared_calendar_initial_schema.sql) — `sc_id varchar(6) not null unique`. 최종적으로 OAuth 로그인 시 사용자 프로필 자동 생성에서 SC ID 발급 로직 통합.
 
 **미해결**
 - Rate limit (Open Question으로 PRD에 기록).
@@ -121,7 +121,7 @@ for delete using (
 - `array_length`가 빈 배열에서 NULL을 반환하므로 `coalesce`로 0 처리.
 
 **결과**
-[supabase/migrations/group_calendars_delete_when_alone.sql](supabase/migrations/group_calendars_delete_when_alone.sql).
+[supabase/migrations/group_calendars_delete_when_alone.sql](../supabase/migrations/group_calendars_delete_when_alone.sql).
 
 ---
 
@@ -138,7 +138,7 @@ for delete using (
 - 모바일은 `signInWithOAuth({ skipBrowserRedirect: true })` → `WebBrowser.openAuthSessionAsync` → URL의 `code` 파싱 → `exchangeCodeForSession`.
 
 **결과**
-[src/services/AuthService.js:16-51](src/services/AuthService.js#L16-L51).
+[src/services/AuthService.js](../src/services/AuthService.js)의 `signInWithGoogle` 함수.
 
 **검증**
 - 웹: 정상.
