@@ -11,9 +11,14 @@ import {
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EventModal from "./EventModal";
 import Button from "./Button";
 import { useTheme } from "../context/ThemeContext";
+
+// MainTabNavigator의 tabBarStyle: bottom 12 + height 72
+const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
+const GAP_ABOVE_TAB_BAR = 10;
 
 export default function CalendarView({
   selectedDate,
@@ -29,6 +34,11 @@ export default function CalendarView({
   const [editingEvent, setEditingEvent] = useState(null);
   const theme = useTheme();
   const colors = theme?.colors || { tint: "#395fa5ff" };
+  const insets = useSafeAreaInsets();
+  const addButtonMarginBottom = Math.max(
+    8,
+    TAB_BAR_TOP_FROM_SCREEN_BOTTOM + GAP_ABOVE_TAB_BAR - insets.bottom,
+  );
 
   const handleEventPress = (event) => {
     if (event.isHoliday) {
@@ -281,7 +291,12 @@ export default function CalendarView({
       </ScrollView>
 
       {/* 일정 추가 버튼 (스크롤 영역 바깥, 하단 고정) */}
-      <View style={styles.addButtonWrapper}>
+      <View
+        style={[
+          styles.addButtonWrapper,
+          { marginBottom: addButtonMarginBottom },
+        ]}
+      >
         <Button
           title="일정 추가"
           variant="primary"
@@ -423,7 +438,6 @@ const styles = StyleSheet.create({
   },
   addButtonWrapper: {
     marginTop: 0,
-    marginBottom: 110,
     marginHorizontal: 30,
   },
 });

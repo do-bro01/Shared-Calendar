@@ -24,10 +24,22 @@ if (typeof document !== 'undefined') {
     Object.entries(extra).forEach(([k, v]) => el.setAttribute(k, v));
   };
 
-  ensureMeta('name', 'theme-color', '#ffffff');
+  // localStorage에 저장된 테마 모드를 읽어서 초기 status bar / 배경색 결정
+  // (ThemeContext와 동일한 키 사용 — FOUC 및 iOS PWA 실행 시 status bar 색상 깜빡임 방지)
+  let initialIsDark = false;
+  try {
+    const saved = window.localStorage && window.localStorage.getItem('sc-theme-mode');
+    initialIsDark = saved === 'dark';
+  } catch (_) {
+    // localStorage 접근 실패 — light 모드로 폴백
+  }
+  const initialBg = initialIsDark ? '#17181b' : '#ffffff';
+  const initialStatusBarStyle = initialIsDark ? 'black' : 'default';
+
+  ensureMeta('name', 'theme-color', initialBg);
   ensureMeta('name', 'mobile-web-app-capable', 'yes');
   ensureMeta('name', 'apple-mobile-web-app-capable', 'yes');
-  ensureMeta('name', 'apple-mobile-web-app-status-bar-style', 'default');
+  ensureMeta('name', 'apple-mobile-web-app-status-bar-style', initialStatusBarStyle);
   ensureMeta('name', 'apple-mobile-web-app-title', 'Share Calendar');
   ensureMeta(
     'name',
@@ -38,6 +50,14 @@ if (typeof document !== 'undefined') {
   ensureLink('manifest', '/manifest.json');
   ensureLink('apple-touch-icon', '/apple-touch-icon.png');
   ensureLink('icon', '/icon-192.png', { sizes: '192x192', type: 'image/png' });
+
+  if (document.documentElement) {
+    document.documentElement.style.backgroundColor = initialBg;
+    document.documentElement.style.colorScheme = initialIsDark ? 'dark' : 'light';
+  }
+  if (document.body) {
+    document.body.style.backgroundColor = initialBg;
+  }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
