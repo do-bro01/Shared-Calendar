@@ -303,7 +303,7 @@ export default function CalendarView({
           size="lg"
           onPress={() => setModalVisible(true)}
           icon={<MaterialIcons name="add" size={18} color="#fff" />}
-          fullWidth
+          style={{ width: "50%", paddingVertical: 8 }}
         />
       </View>
 
@@ -439,5 +439,6 @@ const styles = StyleSheet.create({
   addButtonWrapper: {
     marginTop: 0,
     marginHorizontal: 30,
+    alignItems: "center",
   },
 });

@@ -222,18 +222,16 @@ export default function SettingsScreen() {
     onValueChange,
     isToggle = false,
     onPress,
-  }) => (
-    <TouchableOpacity
-      style={[
-        styles.settingItem,
-        {
-          backgroundColor: theme.colors.background,
-          borderBottomColor: theme.mode === "dark" ? "#555" : "#eee",
-        },
-      ]}
-      onPress={onPress || (isToggle ? onValueChange || (() => {}) : undefined)}
-      disabled={isToggle && !onValueChange}
-    >
+  }) => {
+    const rowStyle = [
+      styles.settingItem,
+      {
+        backgroundColor: theme.colors.background,
+        borderBottomColor: theme.mode === "dark" ? "#555" : "#eee",
+      },
+    ];
+
+    const left = (
       <View style={styles.itemContent}>
         <MaterialIcons
           name={icon}
@@ -245,25 +243,45 @@ export default function SettingsScreen() {
           {title}
         </Text>
       </View>
-      {isToggle ? (
-        <Switch
-          trackColor={{ false: "#767577", true: theme.colors.tint }}
-          thumbColor="#ffffff"
-          ios_backgroundColor="#3e3e3e"
-          onValueChange={onValueChange}
-          value={value}
-          activeThumbColor="#ffffff"
-          style={
-            Platform.OS === "web"
-              ? { accentColor: theme.colors.tint }
-              : undefined
-          }
-        />
-      ) : (
+    );
+
+    // 토글 행: 좌측만 Touchable, Switch는 자체 onValueChange만 사용
+    // (부모 TouchableOpacity로 감싸면 Switch 탭 시 핸들러가 두 번 발화해 토글이 상쇄됨)
+    if (isToggle) {
+      return (
+        <View style={rowStyle}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={() => onValueChange && onValueChange(!value)}
+            disabled={!onValueChange}
+            activeOpacity={0.6}
+          >
+            {left}
+          </TouchableOpacity>
+          <Switch
+            trackColor={{ false: "#767577", true: theme.colors.tint }}
+            thumbColor="#ffffff"
+            ios_backgroundColor="#3e3e3e"
+            onValueChange={onValueChange}
+            value={value}
+            activeThumbColor="#ffffff"
+            style={
+              Platform.OS === "web"
+                ? { accentColor: theme.colors.tint }
+                : undefined
+            }
+          />
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity style={rowStyle} onPress={onPress}>
+        {left}
         <MaterialIcons name="keyboard-arrow-right" size={24} color="#aaa" />
-      )}
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (loadingProfile) {
     return (
