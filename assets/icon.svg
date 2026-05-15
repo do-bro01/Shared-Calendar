@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5a82d1"/>
+      <stop offset="100%" stop-color="#395fa5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 둥근 사각형 배경 (iOS squircle 느낌) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230" fill="url(#bg)"/>
+
+  <!-- "S" - 자기교차 없는 부드러운 곡선 -->
+  <path d="M 440 345
+           C 440 280, 320 270, 245 295
+           C 165 325, 165 410, 240 445
+           C 310 475, 380 485, 440 525
+           C 510 570, 510 660, 415 685
+           C 315 715, 200 695, 175 650"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="105"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- "C" - 동글한 호 -->
+  <path d="M 845 385
+           C 795 320, 685 305, 600 350
+           C 510 400, 490 515, 540 600
+           C 590 685, 700 705, 790 675
+           C 820 665, 845 645, 860 620"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="105"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>
