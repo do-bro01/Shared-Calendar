@@ -13,6 +13,7 @@ import Button from "./Button";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { GroupCalendarService } from "../services/GroupCalendarService";
+import { useTheme } from "../context/ThemeContext";
 
 const COLOR_OPTIONS = [
   { name: "기본", value: "#395fa5ff" },
@@ -33,6 +34,23 @@ const EventModal = ({
   editMode = false,
   eventToEdit = null,
 }) => {
+  const { mode, colors } = useTheme();
+  const isDark = mode === "dark";
+  // 다크모드에서 배경(#17181b)보다 단계적으로 밝아지는 표면 색
+  const palette = {
+    surface: isDark ? "#23252b" : "#ffffff",
+    field: isDark ? "#2a2d33" : "#f5f5f5",
+    innerCard: isDark ? "#2f3138" : "#ffffff",
+    border: isDark ? "#3a3d44" : "#dddddd",
+    softBorder: isDark ? "#33363d" : "#cccccc",
+    label: isDark ? "#a8acb5" : "#666666",
+    muted: isDark ? "#8d919a" : "#999999",
+    placeholder: isDark ? "#7a7e87" : "#aaaaaa",
+    selectedBg: isDark ? "#2a4263" : "#e3f2fd",
+    selectedBorder: colors.tint,
+    text: colors.text,
+  };
+
   const [title, setTitle] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [groupCalendars, setGroupCalendars] = useState([]);
@@ -209,7 +227,7 @@ const EventModal = ({
       >
         <View
           style={{
-            backgroundColor: "white",
+            backgroundColor: palette.surface,
             padding: 20,
             width: "100%",
             borderRadius: 10,
@@ -217,27 +235,37 @@ const EventModal = ({
           }}
         >
           <ScrollView showsVerticalScrollIndicator={true}>
-            <Text style={{ fontSize: 20, marginBottom: 10 }}>
+            <Text
+              style={{ fontSize: 20, marginBottom: 10, color: palette.text }}
+            >
               {editMode ? "일정 수정" : "일정 추가"}
             </Text>
 
             {/* 제목 입력 */}
             <TextInput
               placeholder="일정 제목"
+              placeholderTextColor={palette.placeholder}
               value={title}
               onChangeText={setTitle}
               style={{
                 borderWidth: 1,
-                borderColor: "#ccc",
+                borderColor: palette.softBorder,
                 padding: 10,
                 marginBottom: 15,
                 borderRadius: 5,
+                color: palette.text,
+                backgroundColor: palette.field,
               }}
             />
 
             {/* 날짜 범위 선택 */}
             <Text
-              style={{ fontSize: 14, fontWeight: "bold", marginBottom: 10 }}
+              style={{
+                fontSize: 14,
+                fontWeight: "bold",
+                marginBottom: 10,
+                color: palette.text,
+              }}
             >
               날짜 선택
             </Text>
@@ -249,7 +277,7 @@ const EventModal = ({
                 alignItems: "center",
                 justifyContent: "space-between",
                 marginBottom: 15,
-                backgroundColor: "#f5f5f5",
+                backgroundColor: palette.field,
                 padding: 12,
                 borderRadius: 8,
               }}
@@ -259,15 +287,19 @@ const EventModal = ({
                 style={{
                   flex: 1,
                   padding: 10,
-                  backgroundColor: "#fff",
+                  backgroundColor: palette.innerCard,
                   borderRadius: 5,
                   marginRight: 8,
                   borderWidth: 1,
-                  borderColor: "#ddd",
+                  borderColor: palette.border,
                 }}
               >
                 <Text
-                  style={{ fontSize: 13, textAlign: "center", color: "#000" }}
+                  style={{
+                    fontSize: 13,
+                    textAlign: "center",
+                    color: palette.text,
+                  }}
                 >
                   {formatDateDisplay(startDate)}
                 </Text>
@@ -278,6 +310,7 @@ const EventModal = ({
                   fontSize: 16,
                   fontWeight: "bold",
                   marginHorizontal: 8,
+                  color: palette.text,
                 }}
               >
                 &gt;
@@ -288,15 +321,19 @@ const EventModal = ({
                 style={{
                   flex: 1,
                   padding: 10,
-                  backgroundColor: "#fff",
+                  backgroundColor: palette.innerCard,
                   borderRadius: 5,
                   marginLeft: 8,
                   borderWidth: 1,
-                  borderColor: "#ddd",
+                  borderColor: palette.border,
                 }}
               >
                 <Text
-                  style={{ fontSize: 13, textAlign: "center", color: "#000" }}
+                  style={{
+                    fontSize: 13,
+                    textAlign: "center",
+                    color: palette.text,
+                  }}
                 >
                   {formatDateDisplay(endDate)}
                 </Text>
@@ -306,7 +343,13 @@ const EventModal = ({
             {/* 시작 날짜 선택 피커 */}
             {showStartPicker && (
               <View style={{ marginBottom: 15 }}>
-                <Text style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: palette.label,
+                    marginBottom: 8,
+                  }}
+                >
                   시작 날짜
                 </Text>
                 {Platform.OS === "web" ? (
@@ -323,9 +366,12 @@ const EventModal = ({
                       width: "100%",
                       padding: 10,
                       borderRadius: 5,
-                      border: "1px solid #ccc",
+                      border: `1px solid ${palette.softBorder}`,
                       boxSizing: "border-box",
                       maxWidth: "100%",
+                      backgroundColor: palette.field,
+                      color: palette.text,
+                      colorScheme: isDark ? "dark" : "light",
                     }}
                   />
                 ) : (
@@ -339,7 +385,7 @@ const EventModal = ({
                       mode="date"
                       display={Platform.OS === "ios" ? "spinner" : "default"}
                       onChange={handleStartDateChange}
-                      textColor="#000000"
+                      textColor={palette.text}
                     />
                   </View>
                 )}
@@ -349,7 +395,13 @@ const EventModal = ({
             {/* 종료 날짜 선택 피커 */}
             {showEndPicker && (
               <View style={{ marginBottom: 15 }}>
-                <Text style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: palette.label,
+                    marginBottom: 8,
+                  }}
+                >
                   종료 날짜
                 </Text>
                 {Platform.OS === "web" ? (
@@ -366,9 +418,12 @@ const EventModal = ({
                       width: "100%",
                       padding: 10,
                       borderRadius: 5,
-                      border: "1px solid #ccc",
+                      border: `1px solid ${palette.softBorder}`,
                       boxSizing: "border-box",
                       maxWidth: "100%",
+                      backgroundColor: palette.field,
+                      color: palette.text,
+                      colorScheme: isDark ? "dark" : "light",
                     }}
                   />
                 ) : (
@@ -382,7 +437,7 @@ const EventModal = ({
                       mode="date"
                       display={Platform.OS === "ios" ? "spinner" : "default"}
                       onChange={handleEndDateChange}
-                      textColor="#000000"
+                      textColor={palette.text}
                     />
                   </View>
                 )}
@@ -391,7 +446,12 @@ const EventModal = ({
 
             {/* 점 색상 선택 */}
             <Text
-              style={{ fontSize: 14, fontWeight: "bold", marginBottom: 10 }}
+              style={{
+                fontSize: 14,
+                fontWeight: "bold",
+                marginBottom: 10,
+                color: palette.text,
+              }}
             >
               일정 색상
             </Text>
@@ -414,7 +474,9 @@ const EventModal = ({
                     borderRadius: 16,
                     borderWidth: selectedColor === color.value ? 2.5 : 1,
                     borderColor:
-                      selectedColor === color.value ? "#000" : "#ddd",
+                      selectedColor === color.value
+                        ? palette.text
+                        : palette.border,
                     justifyContent: "center",
                     alignItems: "center",
                   }}
@@ -440,7 +502,12 @@ const EventModal = ({
             {!isShared && (
               <>
                 <Text
-                  style={{ fontSize: 14, fontWeight: "bold", marginBottom: 10 }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "bold",
+                    marginBottom: 10,
+                    color: palette.text,
+                  }}
                 >
                   일정 공유
                 </Text>
@@ -454,15 +521,18 @@ const EventModal = ({
                     paddingVertical: 12,
                     paddingHorizontal: 12,
                     marginBottom: 15,
-                    backgroundColor: "#f5f5f5",
+                    backgroundColor: palette.field,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: "#ddd",
+                    borderColor: palette.border,
                   }}
                 >
                   <Text
                     style={{
-                      color: selectedGroups.length > 0 ? "#000" : "#999",
+                      color:
+                        selectedGroups.length > 0
+                          ? palette.text
+                          : palette.muted,
                     }}
                   >
                     {selectedGroups.length > 0
@@ -472,7 +542,7 @@ const EventModal = ({
                   <MaterialIcons
                     name={showGroupSelector ? "expand-less" : "expand-more"}
                     size={20}
-                    color="#666"
+                    color={palette.label}
                   />
                 </TouchableOpacity>
 
@@ -482,7 +552,7 @@ const EventModal = ({
                     {loadingGroups ? (
                       <Text
                         style={{
-                          color: "#666",
+                          color: palette.label,
                           textAlign: "center",
                           paddingVertical: 16,
                         }}
@@ -492,7 +562,7 @@ const EventModal = ({
                     ) : groupCalendars.length === 0 ? (
                       <Text
                         style={{
-                          color: "#999",
+                          color: palette.muted,
                           textAlign: "center",
                           paddingVertical: 16,
                         }}
@@ -510,13 +580,13 @@ const EventModal = ({
                             paddingHorizontal: 12,
                             marginBottom: 8,
                             backgroundColor: selectedGroups.includes(group.id)
-                              ? "#e3f2fd"
-                              : "#f5f5f5",
+                              ? palette.selectedBg
+                              : palette.field,
                             borderRadius: 6,
                             borderWidth: 1,
                             borderColor: selectedGroups.includes(group.id)
-                              ? "#395fa5ff"
-                              : "#ddd",
+                              ? palette.selectedBorder
+                              : palette.border,
                           }}
                           onPress={() => toggleGroupSelection(group.id)}
                         >
@@ -525,13 +595,13 @@ const EventModal = ({
                               width: 20,
                               height: 20,
                               borderWidth: 2,
-                              borderColor: "#395fa5ff",
+                              borderColor: colors.tint,
                               borderRadius: 4,
                               justifyContent: "center",
                               alignItems: "center",
                               marginRight: 10,
                               backgroundColor: selectedGroups.includes(group.id)
-                                ? "#395fa5ff"
+                                ? colors.tint
                                 : "transparent",
                             }}
                           >
@@ -544,7 +614,11 @@ const EventModal = ({
                             )}
                           </View>
                           <Text
-                            style={{ flex: 1, fontSize: 14, color: "#000" }}
+                            style={{
+                              flex: 1,
+                              fontSize: 14,
+                              color: palette.text,
+                            }}
                           >
                             {group.name}
                           </Text>
