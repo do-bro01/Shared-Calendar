@@ -25,7 +25,7 @@
 1. **일정 + 사진 + 코멘트 데이터를 자연어로 검색하는 RAG 챗봇** 구현
 2. **개인/그룹 단위 권한 격리 검색** (pgvector + RLS)
 3. **RAGAS 기반 정량 평가** (Ground Truth 15개 이상)
-4. **모바일·웹 통합 UI** 구현 (기존 React Native 앱 + Streamlit 데모)
+4. **모바일·웹 통합 UI** 구현 (기존 React Native 앱에 챗봇 화면 추가)
 5. **(가점)** RAG 성능 개선 기법 적용 (Hybrid Search, Re-ranking 등)
 
 ---
@@ -40,11 +40,11 @@
 | RAG 기본                           | LangChain 표준 패턴                       | 코드             |
 | 벡터 DB                            | Supabase pgvector                         | DB 설계 문서     |
 | Memory 기능                        | `chat_messages` 테이블 + 세션별 히스토리  | 코드             |
-| 챗봇 기능                          | 신규 챗봇 화면 (RN 앱 + Streamlit)        | UI               |
+| 챗봇 기능                          | 신규 챗봇 화면 (RN 앱, 선택적으로 Streamlit) | UI               |
 | Github 업로드                      | 코드 + README + 모든 문서                 | 레포             |
 | UI 기획·구현                       | 챗봇 화면 + 추억 피드 화면 신규           | 디자인 + 코드    |
 | RAGAS 평가                         | Ground Truth 15개, 메트릭 4종, 비교군 3개 | 평가 보고서      |
-| 배포                               | Vercel (기존) + Streamlit Cloud (데모)    | 배포 URL         |
+| 배포                               | Vercel (기존 RN 웹) + Supabase Edge Function | 배포 URL         |
 | 논문 제출 (가점)                   | "개인 데이터 RAG의 권한 격리 패턴" 주제   | 논문 초안        |
 | 성능 개선 노력 (가점)              | Hybrid Search + Re-ranking 적용           | 코드 + 비교 결과 |
 
@@ -56,8 +56,8 @@
 ┌───────────────────────────────────────────────────────────┐
 │                    Client Layer                           │
 │  ┌──────────────────────┐    ┌────────────────────────┐   │
-│  │ React Native + Expo  │    │ Streamlit (데모용)       │   │
-│  │ (모바일/웹 - 메인)      │    │ (발표 시각화)             │   │
+│  │ React Native + Expo  │    │ Streamlit (선택, 옵션)   │   │
+│  │ TypeScript - 메인     │    │ Python - 발표 시각화용    │   │
 │  └──────────┬───────────┘    └────────────┬───────────┘   │
 └─────────────┼─────────────────────────────┼───────────────┘
               │                             │
@@ -104,19 +104,31 @@
 
 ## 5. 기술 스택
 
+### 5.1 언어 전략
+
+| 구역 | 언어 | 이유 |
+|------|------|------|
+| 프로덕션 코드 (앱 + RAG 백엔드) | **TypeScript / JavaScript** | 기존 RN 앱 + Supabase Edge Function(Deno) 모두 TS. 단일 언어 유지 |
+| 평가 스크립트 | **Python** | RAGAS가 Python 라이브러리이므로 평가 부분만 Python (1회성) |
+| (선택) 합성 데이터 생성 | Python 또는 TS | 어느 쪽이든. faker + OpenAI는 Python이 약간 편함 |
+
+> **RAG는 언어와 무관하다.** 패턴(임베딩→검색→생성)만 맞으면 어느 언어로든 구현 가능. OpenAI/Anthropic SDK와 pgvector는 양쪽 모두 지원. LangChain도 JS 버전(`@langchain/core`) 존재. 이 프로젝트 규모면 LangChain 없이 직접 구현해도 충분.
+
+### 5.2 스택 상세
+
 | 영역                   | 선택                                                  | 이유                                            |
 | ---------------------- | ----------------------------------------------------- | ----------------------------------------------- |
-| **Frontend (메인)**    | React Native + Expo + react-native-web                | 기존 MVP 코드 재사용, 모바일/웹 동시 지원       |
-| **Frontend (데모)**    | Streamlit                                             | 발표용 빠른 시각화, RAG 파이프라인 디버깅 UI    |
-| **Backend**            | Supabase (Postgres + Auth + Storage + Edge Functions) | 기존 인프라 재사용, BaaS 비용 효율              |
+| **Frontend (메인)**    | React Native + Expo + react-native-web (TS)           | 기존 MVP 코드 재사용, 모바일/웹 동시 지원       |
+| **Backend / RAG 파이프라인** | Supabase Edge Function (Deno + TypeScript)      | 기존 인프라 통합, RLS·인증 자동, 별도 서버 불필요 |
 | **Vector DB**          | Supabase pgvector                                     | 별도 벡터 DB 도입 불필요, RLS와 자연스럽게 결합 |
 | **Embedding 모델**     | OpenAI `text-embedding-3-small` (1536차원)            | $0.02/M 토큰, 한국어 품질 양호                  |
 | **LLM (생성)**         | Claude Haiku 4.5 또는 GPT-4o-mini                     | 비용 효율 + 한국어 우수, 챗봇용 충분            |
 | **Vision (사진 캡션)** | Claude Sonnet Vision 또는 GPT-4o Vision               | 업로드 1회만 호출 (캐시)                        |
-| **RAG 프레임워크**     | LangChain (Python)                                    | Edge Function 또는 별도 백엔드에서 사용         |
-| **평가**               | RAGAS                                                 | 수업 요구사항                                   |
-| **Re-ranking (가점)**  | Cohere Rerank API 또는 BGE-Reranker                   | 검색 정확도 향상                                |
-| **배포**               | Vercel (RN 웹) + Streamlit Cloud (데모) + Supabase    | 무료 또는 저비용                                |
+| **RAG 프레임워크**     | 없음 (직접 구현) 또는 LangChain.js (선택)             | 규모상 직접 구현이 가벼움. 복잡해지면 LC.js 도입 |
+| **평가**               | **RAGAS (Python)**                                    | 수업 요구사항. 별도 Python 스크립트로 분리      |
+| **Re-ranking (가점)**  | Cohere Rerank API 또는 BGE-Reranker                   | 검색 정확도 향상. API 호출이라 언어 무관         |
+| **(선택) 데모 페이지** | Streamlit (Python) — 옵션                             | RN 앱으로 충분히 발표 가능. 시간 여유 시 추가  |
+| **배포**               | Vercel (RN 웹) + Supabase                             | 무료 티어 활용                                  |
 | **모니터링**           | Supabase Dashboard + LangSmith (옵션)                 | 호출 로그·비용 추적                             |
 
 ---
@@ -162,7 +174,7 @@
 | 2주  |        | DB 스키마 확장 + 합성 데이터 생성 스크립트      | A    | 마이그레이션 SQL, seed.py |
 | 3주  |        | 임베딩 파이프라인 (Edge Function) + Vision 캡션 | A, B | 코드                      |
 | 4주  |        | RAG 검색 함수 + 챗봇 API                        | B    | Edge Function             |
-| 5주  |        | 챗봇 UI (RN 앱) + Streamlit 데모 페이지         | C    | 화면                      |
+| 5주  |        | 챗봇 UI (RN 앱) + (선택) Streamlit 데모          | C    | 화면                      |
 | 6주  |        | Memory 기능, 출처 카드 표시, Hybrid Search      | B, C | 통합 데모                 |
 | 7주  |        | RAGAS 평가, Re-ranking 적용, 성능 비교          | A    | 평가 보고서               |
 | 8주  |        | 발표 자료, 데모 영상, 논문 초안                 | 전원 | PPT, MP4, 논문            |
@@ -225,7 +237,7 @@
 | RAGAS 평가 시간         | 일정 지연        | 평가 자동화 스크립트 + 비교군 병렬 실행                 |
 | 팀 협업 충돌            | 개발 지연        | Git Flow 명시, 주 1회 동기화 미팅, PR 리뷰 의무         |
 | 한국어 임베딩 품질      | 검색 정확도 저하 | OpenAI 모델과 BGE-Korean 비교 후 선택                   |
-| Streamlit과 RN 앱 중복  | 작업 부담        | Streamlit은 데모 전용 (최소 기능), 메인은 RN            |
+| TS/Python 환경 분리     | 컨텍스트 스위칭  | 프로덕션은 TS만, Python은 평가/seed 1회용 스크립트로 한정 |
 
 ---
 
@@ -233,12 +245,12 @@
 
 ### 코드
 
-- [ ] 임베딩 파이프라인 (Supabase Edge Function 또는 Python 스크립트)
-- [ ] RAG 검색 + LLM 호출 API
-- [ ] 챗봇 UI (React Native)
-- [ ] Streamlit 데모 페이지
-- [ ] 합성 데이터 생성 스크립트
-- [ ] RAGAS 평가 스크립트
+- [ ] 임베딩 파이프라인 (Supabase Edge Function, TS)
+- [ ] RAG 검색 + LLM 호출 API (Supabase Edge Function, TS)
+- [ ] 챗봇 UI (React Native, TS)
+- [ ] 합성 데이터 생성 스크립트 (Python 또는 TS)
+- [ ] RAGAS 평가 스크립트 (**Python 필수**)
+- [ ] (선택) Streamlit 데모 페이지 (Python)
 
 ### 문서
 
@@ -252,8 +264,8 @@
 ### 배포
 
 - [ ] Vercel: RN 웹 앱 URL
-- [ ] Streamlit Cloud: 데모 페이지 URL
 - [ ] Supabase: DB + Edge Function
+- [ ] (선택) Streamlit Cloud: 데모 페이지 URL
 
 ### 발표
 

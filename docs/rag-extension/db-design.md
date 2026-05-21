@@ -457,12 +457,27 @@ for each row execute function trigger_embed_comment();
 
 ### 7.2 백필 방식 (초기 합성 데이터)
 
-Python 스크립트로 일괄 처리:
+Python 또는 TS 스크립트로 일괄 처리. 둘 다 가능.
+
 ```python
-# 합성 데이터 삽입 → 임베딩 일괄 생성 → UPDATE
+# Python 예시
 for row in unembedded_rows:
     emb = openai.embeddings.create(model="text-embedding-3-small", input=row.text)
     supabase.table("event_comments").update({"text_embedding": emb}).eq("id", row.id).execute()
+```
+
+```typescript
+// TypeScript 예시 (Deno 또는 Node)
+for (const row of unembeddedRows) {
+  const { data } = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: row.text,
+  });
+  await supabase
+    .from("event_comments")
+    .update({ text_embedding: data[0].embedding })
+    .eq("id", row.id);
+}
 ```
 
 ---
