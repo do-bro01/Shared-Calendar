@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   View,
@@ -159,6 +159,10 @@ const EventModal = ({
   // 어떤 날짜를 편집 중인지: "start" | "end" | null
   const [editing, setEditing] = useState(null);
 
+  // 휠 영역이 펼쳐졌을 때 보이도록 스크롤하기 위한 refs
+  const scrollRef = useRef(null);
+  const pickerYRef = useRef(0);
+
   // 그룹 캘린더 로드
   useEffect(() => {
     if (visible && !isShared) {
@@ -248,6 +252,19 @@ const EventModal = ({
   const toggleEditing = (which) => {
     setEditing((cur) => (cur === which ? null : which));
   };
+
+  // 시작/종료 날짜를 터치해서 휠이 펼쳐지면 그 영역이 보이도록 스크롤
+  useEffect(() => {
+    if (!editing) return;
+    // 렌더 끝난 다음에 측정된 위치로 스크롤
+    const id = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(pickerYRef.current - 12, 0),
+        animated: true,
+      });
+    }, 50);
+    return () => clearTimeout(id);
+  }, [editing, allDay]);
 
   // 현재 편집 중인 날짜 객체
   const currentEditDate = editing === "start" ? startDate : endDate;
@@ -561,6 +578,7 @@ const EventModal = ({
           </View>
 
           <ScrollView
+            ref={scrollRef}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 8 }}
             keyboardShouldPersistTaps="handled"
@@ -643,8 +661,14 @@ const EventModal = ({
               </TouchableOpacity>
             </View>
 
-            {/* 휠 피커 */}
-            <PickerArea />
+            {/* 휠 피커 (시작/종료를 탭해야 펼쳐짐) */}
+            <View
+              onLayout={(e) => {
+                pickerYRef.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <PickerArea />
+            </View>
 
             {/* 색상 */}
             <Text
