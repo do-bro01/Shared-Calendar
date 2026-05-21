@@ -14,6 +14,7 @@ export class GroupEventService {
       } = await supabase.auth.getUser();
       if (userError || !user) throw new Error("로그인되지 않음");
 
+      const allDay = event.allDay !== false;
       const { data, error } = await supabase
         .from("group_events")
         .insert([
@@ -25,6 +26,9 @@ export class GroupEventService {
             user_id: user.id,
             linked_personal_event_id: event.linkedPersonalEventId || null,
             dot_color: event.dotColor || "#395fa5ff",
+            all_day: allDay,
+            start_time: allDay ? null : event.startTime ?? null,
+            end_time: allDay ? null : event.endTime ?? null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -87,7 +91,10 @@ export class GroupEventService {
   /**
    * 그룹 일정 수정
    */
-  static async updateGroupEvent(eventId, { title, date, endDate, dotColor }) {
+  static async updateGroupEvent(
+    eventId,
+    { title, date, endDate, dotColor, allDay, startTime, endTime },
+  ) {
     try {
       const updateData = {
         title,
@@ -98,6 +105,12 @@ export class GroupEventService {
 
       if (dotColor) {
         updateData.dot_color = dotColor;
+      }
+
+      if (typeof allDay === "boolean") {
+        updateData.all_day = allDay;
+        updateData.start_time = allDay ? null : startTime ?? null;
+        updateData.end_time = allDay ? null : endTime ?? null;
       }
 
       const { error } = await supabase

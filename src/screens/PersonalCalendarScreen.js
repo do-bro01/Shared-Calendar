@@ -33,6 +33,9 @@ export default function PersonalCalendarScreen() {
         endDate: eventData.endDate || eventData.date,
         linkedGroupEventIds: [],
         dotColor: eventData.dotColor,
+        allDay: eventData.allDay,
+        startTime: eventData.startTime,
+        endTime: eventData.endTime,
       });
 
       // 선택된 공유 캘린더들에 일정 추가하고 연결
@@ -45,6 +48,9 @@ export default function PersonalCalendarScreen() {
             groupCalendarId: groupId,
             linkedPersonalEventId: personalEventId,
             dotColor: eventData.dotColor,
+            allDay: eventData.allDay,
+            startTime: eventData.startTime,
+            endTime: eventData.endTime,
           });
           linkedGroupEventIds.push(groupEventId);
         }
@@ -84,6 +90,9 @@ export default function PersonalCalendarScreen() {
         date: eventData.date,
         endDate: eventData.endDate || eventData.date,
         dotColor: eventData.dotColor,
+        allDay: eventData.allDay,
+        startTime: eventData.startTime,
+        endTime: eventData.endTime,
       });
 
       // 2. 기존 그룹 일정들의 groupCalendarId 매핑 생성
@@ -117,6 +126,9 @@ export default function PersonalCalendarScreen() {
             date: eventData.date,
             endDate: eventData.endDate || eventData.date,
             dotColor: eventData.dotColor,
+            allDay: eventData.allDay,
+            startTime: eventData.startTime,
+            endTime: eventData.endTime,
           });
           updatedLinkedGroupEventIds.push(groupEventId);
         } else {
@@ -128,6 +140,9 @@ export default function PersonalCalendarScreen() {
             groupCalendarId: groupId,
             linkedPersonalEventId: eventData.id,
             dotColor: eventData.dotColor,
+            allDay: eventData.allDay,
+            startTime: eventData.startTime,
+            endTime: eventData.endTime,
           });
           updatedLinkedGroupEventIds.push(groupEventId);
         }

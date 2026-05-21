@@ -243,10 +243,20 @@ export default function CalendarView({
                 return `${month}월${day}일`;
               };
 
-              const dateText =
+              // HH:MM:SS → HH:MM 로 자르기
+              const trimTime = (t) =>
+                typeof t === "string" ? t.slice(0, 5) : t;
+
+              const baseDateText =
                 ev.endDate && ev.endDate !== ev.date
                   ? `${formatDate(ev.date)}~${formatDate(ev.endDate)}`
                   : formatDate(ev.date);
+
+              // 하루종일이 아닌 일정은 시간 표시 추가
+              const dateText =
+                !ev.isHoliday && ev.allDay === false && ev.startTime && ev.endTime
+                  ? `${baseDateText}  ${trimTime(ev.startTime)} ~ ${trimTime(ev.endTime)}`
+                  : baseDateText;
 
               return (
                 <TouchableOpacity

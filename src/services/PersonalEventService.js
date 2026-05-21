@@ -11,6 +11,9 @@ export class PersonalEventService {
     endDate,
     linkedGroupEventIds = [],
     dotColor = "#395fa5ff",
+    allDay = true,
+    startTime = null,
+    endTime = null,
   }) {
     try {
       const {
@@ -29,6 +32,9 @@ export class PersonalEventService {
             user_id: user.id,
             linked_group_event_ids: linkedGroupEventIds,
             dot_color: dotColor,
+            all_day: allDay,
+            start_time: allDay ? null : startTime,
+            end_time: allDay ? null : endTime,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -62,7 +68,7 @@ export class PersonalEventService {
    */
   static async updatePersonalEvent(
     eventId,
-    { title, date, endDate, dotColor },
+    { title, date, endDate, dotColor, allDay, startTime, endTime },
   ) {
     try {
       const updateData = {
@@ -74,6 +80,13 @@ export class PersonalEventService {
 
       if (dotColor) {
         updateData.dot_color = dotColor;
+      }
+
+      // 시간 관련 필드는 호출자가 명시할 때만 업데이트
+      if (typeof allDay === "boolean") {
+        updateData.all_day = allDay;
+        updateData.start_time = allDay ? null : startTime ?? null;
+        updateData.end_time = allDay ? null : endTime ?? null;
       }
 
       const { error } = await supabase
