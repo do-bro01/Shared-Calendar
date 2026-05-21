@@ -11,6 +11,7 @@ import {
   Pressable,
 } from "react-native";
 import Button from "./Button";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { GroupCalendarService } from "../services/GroupCalendarService";
 import { useTheme } from "../context/ThemeContext";
@@ -445,6 +446,29 @@ const EventModal = ({
   const PickerArea = () => {
     if (!editing) return null;
 
+    // iOS / Android: OS 네이티브 spinner. 한국어 로케일이면 연·월·일 자동 정렬.
+    if (Platform.OS !== "web") {
+      return (
+        <View style={{ marginTop: 4, marginBottom: 12 }}>
+          <DateTimePicker
+            value={currentEditDate}
+            mode={allDay ? "date" : "datetime"}
+            display="spinner"
+            locale="ko-KR"
+            themeVariant={isDark ? "dark" : "light"}
+            textColor={palette.text}
+            onChange={(_, picked) => {
+              if (picked instanceof Date && !isNaN(picked)) {
+                setCurrentEditDate(picked);
+              }
+            }}
+            style={{ backgroundColor: "transparent" }}
+          />
+        </View>
+      );
+    }
+
+    // 이하: Web 전용 — 자체 WheelPicker
     const wheelText = palette.text;
 
     if (allDay) {
