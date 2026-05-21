@@ -4,16 +4,22 @@ import CalendarView from "../components/CalendarView";
 import { PersonalEventService } from "../services/PersonalEventService";
 import { GroupEventService } from "../services/GroupEventService";
 import { getKoreanHolidaysForYear } from "../constants/koreanHolidays";
+import { refreshBus } from "../lib/refreshBus";
 
 export default function PersonalCalendarScreen() {
   const [events, setEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const unsubscribe = PersonalEventService.listenPersonalEvents(setEvents);
     return unsubscribe;
+  }, [refreshKey]);
+
+  useEffect(() => {
+    return refreshBus.subscribe(() => setRefreshKey((k) => k + 1));
   }, []);
 
   const handleAddEvent = async (eventData) => {

@@ -20,6 +20,7 @@ import { PersonalEventService } from "../services/PersonalEventService";
 import { FriendService } from "../services/FriendService";
 import { supabase } from "../lib/supabaseClient";
 import { getKoreanHolidaysForYear } from "../constants/koreanHolidays";
+import { refreshBus } from "../lib/refreshBus";
 import CalendarView from "../components/CalendarView";
 import Button from "../components/Button";
 
@@ -37,6 +38,15 @@ export default function SharedCalendarScreen() {
   useEffect(() => {
     loadGroupCalendars();
     loadFriends();
+  }, []);
+
+  // 설정 화면의 새로고침 신호를 받아 목록 재조회
+  // (친구가 새 달력방에 초대했을 때 F5 없이 반영되도록)
+  useEffect(() => {
+    return refreshBus.subscribe(() => {
+      loadGroupCalendars();
+      loadFriends();
+    });
   }, []);
 
   const loadGroupCalendars = async () => {
@@ -399,6 +409,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteSelections, setInviteSelections] = useState([]);
   const [membersModalVisible, setMembersModalVisible] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const holidayEvents = [
     ...getKoreanHolidaysForYear(new Date().getFullYear()),
     ...getKoreanHolidaysForYear(new Date().getFullYear() + 1),
@@ -410,7 +421,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
       setGroupEvents
     );
     return unsubscribe;
-  }, [groupId]);
+  }, [groupId, refreshKey]);
 
   const loadGroupInfo = useCallback(async () => {
     try {
@@ -457,6 +468,15 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
   useEffect(() => {
     loadGroupInfo();
     loadFriends();
+  }, [loadGroupInfo, loadFriends]);
+
+  // 설정 화면의 새로고침 신호 처리: 그룹 정보·친구·일정 모두 재조회
+  useEffect(() => {
+    return refreshBus.subscribe(() => {
+      loadGroupInfo();
+      loadFriends();
+      setRefreshKey((k) => k + 1);
+    });
   }, [loadGroupInfo, loadFriends]);
 
   const toggleInviteSelection = (friendId) => {

@@ -19,6 +19,7 @@ import { supabase } from "../lib/supabaseClient";
 import { UserService } from "../services/UserService";
 import { FriendService } from "../services/FriendService";
 import { logout } from "../services/AuthService";
+import { refreshBus } from "../lib/refreshBus";
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -488,6 +489,8 @@ export default function SettingsScreen() {
               }
               await loadFriends();
               setLoadingProfile(false);
+              // 개인/공유 캘린더 화면도 함께 새로고침
+              refreshBus.emit();
             }}
           >
             <MaterialIcons name="refresh" size={20} color="#fff" />
@@ -727,10 +730,11 @@ export default function SettingsScreen() {
 
             <TextInput
               value={scIdInput}
-              onChangeText={setScIdInput}
+              onChangeText={(text) => setScIdInput(text.toUpperCase())}
               placeholder="예: ABC123"
               placeholderTextColor={theme.mode === "dark" ? "#888" : "#aaa"}
               autoCapitalize="characters"
+              autoCorrect={false}
               maxLength={6}
               style={{
                 borderWidth: 1,
