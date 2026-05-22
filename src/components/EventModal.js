@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Modal,
   View,
@@ -239,6 +245,11 @@ const EventModal = ({
 
   const dateItems = useMemo(() => buildDateItems(), []);
 
+  // 하루종일 토글 시 픽커 구조가 통째로 바뀌면서 1400+개 휠 항목이 mount/unmount되어
+  // 메인 스레드가 막혔다. 토글 버튼 자체는 즉시 새 상태로 그리되, 무거운 픽커 재렌더는
+  // deferred로 빼서 클릭 직후 UI가 얼어붙은 느낌을 없앤다.
+  const deferredAllDay = useDeferredValue(allDay);
+
   const onToggleAllDay = () => {
     setAllDay((prev) => {
       const next = !prev;
@@ -467,7 +478,7 @@ const EventModal = ({
         <View style={{ marginTop: 4, marginBottom: 12 }}>
           <DateTimePicker
             value={currentEditDate}
-            mode={allDay ? "date" : "datetime"}
+            mode={deferredAllDay ? "date" : "datetime"}
             display="spinner"
             locale="ko-KR"
             themeVariant={isDark ? "dark" : "light"}
@@ -494,12 +505,13 @@ const EventModal = ({
 
     // 좌우 간격을 좁히기 위해 row를 가운데 정렬하고 너비를 작게 묶는다.
     // 하루종일 OFF의 첫 컬럼(날짜) 라벨이 가장 길어서 거기에 맞춘 폭.
+    // width도 deferredAllDay를 따라가야 픽커 구조 swap과 동시에 폭이 바뀌어 점프가 없음.
     const wheelRowWrapper = {
       marginTop: 8,
       marginBottom: 16,
       alignSelf: "center",
       width: "100%",
-      maxWidth: allDay ? 200 : 240,
+      maxWidth: deferredAllDay ? 200 : 240,
       position: "relative",
     };
     const singleHighlight = (
@@ -517,7 +529,7 @@ const EventModal = ({
       />
     );
 
-    if (allDay) {
+    if (deferredAllDay) {
       const yearIdx = YEAR_ITEMS.findIndex(
         (it) => it.value === currentEditDate.getFullYear()
       );
