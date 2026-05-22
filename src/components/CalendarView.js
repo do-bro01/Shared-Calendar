@@ -315,7 +315,7 @@ export default function CalendarView({
           variant="primary"
           size="lg"
           onPress={() => setModalVisible(true)}
-          icon={<MaterialIcons name="add" size={18} color="#fff" />}
+          icon={<AddIcon size={18} color="#fff" />}
           style={{ width: "50%", paddingVertical: 8 }}
         />
       </View>
@@ -387,6 +387,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     paddingLeft: 8,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  titleText: {
+    marginTop: 0,
+    marginBottom: 0,
+    paddingLeft: 0,
   },
   calendarWrapper: {
     borderRadius: 12,

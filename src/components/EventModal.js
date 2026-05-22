@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import Button from "./Button";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { MaterialIcons } from "@expo/vector-icons";
+import { ClockIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "./icons";
 import { GroupCalendarService } from "../services/GroupCalendarService";
 import { useTheme } from "../context/ThemeContext";
 import WheelPicker from "./WheelPicker";
@@ -642,8 +642,7 @@ const EventModal = ({
                 paddingVertical: 8,
               }}
             >
-              <MaterialIcons
-                name="schedule"
+              <ClockIcon
                 size={20}
                 color={palette.label}
                 style={{ marginRight: 10 }}
@@ -733,8 +732,7 @@ const EventModal = ({
                   }}
                 >
                   {selectedColor === color.value && (
-                    <MaterialIcons
-                      name="check"
+                    <CheckIcon
                       size={16}
                       color={
                         color.value === "#fbc02d" ||
@@ -791,11 +789,11 @@ const EventModal = ({
                       ? `${selectedGroups.length}개 방 선택`
                       : "공유할 방 선택"}
                   </Text>
-                  <MaterialIcons
-                    name={showGroupSelector ? "expand-less" : "expand-more"}
-                    size={20}
-                    color={palette.label}
-                  />
+                  {showGroupSelector ? (
+                    <ChevronUpIcon size={20} color={palette.label} />
+                  ) : (
+                    <ChevronDownIcon size={20} color={palette.label} />
+                  )}
                 </TouchableOpacity>
 
                 {showGroupSelector && (
@@ -857,11 +855,7 @@ const EventModal = ({
                             }}
                           >
                             {selectedGroups.includes(group.id) && (
-                              <MaterialIcons
-                                name="check"
-                                size={14}
-                                color="#fff"
-                              />
+                              <CheckIcon size={14} color="#fff" />
                             )}
                           </View>
                           <Text
