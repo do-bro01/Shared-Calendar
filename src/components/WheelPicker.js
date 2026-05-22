@@ -31,7 +31,6 @@ export default function WheelPicker({
 }) {
   const scrollRef = useRef(null);
   const lastReportedIndexRef = useRef(selectedIndex);
-  const lastTickIndexRef = useRef(selectedIndex);
   const snapTimerRef = useRef(null);
   const scrollY = useRef(
     new Animated.Value(selectedIndex * itemHeight),
@@ -48,7 +47,6 @@ export default function WheelPicker({
     scrollRef.current.scrollTo({ y, animated: false });
     scrollY.setValue(y);
     lastReportedIndexRef.current = selectedIndex;
-    lastTickIndexRef.current = selectedIndex;
   }, [selectedIndex, itemHeight, scrollY]);
 
   useEffect(() => {
@@ -98,17 +96,9 @@ export default function WheelPicker({
   // 네이티브 드라이버는 web에서는 무시되지만, 안전하게 플래그로 분기
   const useNative = Platform.OS !== "web";
 
-  // 스크롤 중 항목 경계를 지날 때마다 햅틱 한 번씩.
-  // Animated.event listener는 native driver 사용 시 호출되지 않으므로
-  // 웹에서만(=햅틱이 의미 있는 환경) 동작하면 충분하다.
+  // 웹용 디바운스 스냅을 위해 스크롤 오프셋을 받아 타이머를 다시 깐다.
   const handleScrollListener = (e) => {
-    const offsetY = e.nativeEvent.contentOffset.y;
-    const idx = clamp(Math.round(offsetY / itemHeight));
-    if (idx !== lastTickIndexRef.current) {
-      lastTickIndexRef.current = idx;
-      tickHaptic();
-    }
-    scheduleWebSnap(offsetY);
+    scheduleWebSnap(e.nativeEvent.contentOffset.y);
   };
 
   return (
