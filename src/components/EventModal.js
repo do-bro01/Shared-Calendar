@@ -82,6 +82,13 @@ const startOfDay = (d) => {
   x.setHours(0, 0, 0, 0);
   return x;
 };
+const dateKey = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 const buildDateItems = () => {
   const today = startOfDay(new Date());
   const items = [];
@@ -89,7 +96,9 @@ const buildDateItems = () => {
     const dt = new Date(today);
     dt.setDate(today.getDate() + offset);
     items.push({
-      value: dt.toISOString().split("T")[0],
+      // value는 비교용 키 — currentDateKey와 동일하게 로컬 날짜 기준이어야 한다.
+      // toISOString()은 UTC라 KST에서 하루 밀린 키가 만들어져 휠이 +1일로 보이던 버그가 있었음.
+      value: dateKey(dt),
       label:
         offset === 0
           ? "오늘"
@@ -97,13 +106,6 @@ const buildDateItems = () => {
     });
   }
   return items;
-};
-
-const dateKey = (d) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 };
 
 const formatDateDisplay = (date) => {
