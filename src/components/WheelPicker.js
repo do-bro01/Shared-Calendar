@@ -47,7 +47,16 @@ export default function WheelPicker({
   useEffect(() => {
     if (!scrollRef.current) return;
     const y = selectedIndex * itemHeight;
-    scrollRef.current.scrollTo({ y, animated: false });
+    if (Platform.OS === "web") {
+      // CSS scroll-behavior: smooth가 걸려 있어서 scrollTo({animated:false})가
+      // 애니메이션돼 버리는 문제 회피. scrollTop 직접 할당은 항상 즉시 반영됨.
+      // (allDay 토글로 휠이 재마운트될 때 0에서 목표까지 "주르륵 스크롤"되던 원인)
+      const node =
+        scrollRef.current.getScrollableNode?.() ?? scrollRef.current;
+      if (node) node.scrollTop = y;
+    } else {
+      scrollRef.current.scrollTo({ y, animated: false });
+    }
     scrollY.setValue(y);
     lastReportedIndexRef.current = selectedIndex;
   }, [selectedIndex, itemHeight, scrollY]);
