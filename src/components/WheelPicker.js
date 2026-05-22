@@ -15,19 +15,6 @@ const DEFAULT_VISIBLE_COUNT = WHEEL_VISIBLE_COUNT; // 가운데 + 위3 + 아래3
 // 스크롤이 멈춘 직후 가장 가까운 항목으로 스냅하기 위한 디바운스 시간 (ms)
 const SNAP_DEBOUNCE_MS = 140;
 
-// 항목 한 칸을 지날 때 미세 햅틱.
-// 웹은 navigator.vibrate, 그 외는 미동작(네이티브 환경에선 기본적으로 OS 휠을 쓰므로 호출되지 않음).
-const tickHaptic = () => {
-  if (
-    Platform.OS === "web" &&
-    typeof navigator !== "undefined" &&
-    typeof navigator.vibrate === "function"
-  ) {
-    // 너무 강하면 거슬리므로 아주 짧게.
-    navigator.vibrate(3);
-  }
-};
-
 export default function WheelPicker({
   items,
   selectedIndex,
@@ -87,8 +74,11 @@ export default function WheelPicker({
     const offsetY = e.nativeEvent.contentOffset.y;
     const idx = clamp(Math.round(offsetY / itemHeight));
     commitIndex(idx);
-    // 살짝 어긋난 경우 스냅 보정
-    snapTo(idx, true);
+    // 웹에서는 scheduleWebSnap이 이어서 보정하므로 여기서 또 scrollTo를 부르면
+    // 같은 위치로 두 번 애니메이션이 걸려 "새로고침"처럼 끊겨 보임. 네이티브에서만 스냅.
+    if (Platform.OS !== "web") {
+      snapTo(idx, true);
+    }
   };
 
   // 웹은 모멘텀 이벤트가 안 발생할 수 있어 onScroll에서 디바운스로 스냅 보조.
@@ -98,7 +88,10 @@ export default function WheelPicker({
     snapTimerRef.current = setTimeout(() => {
       const idx = clamp(Math.round(offsetY / itemHeight));
       commitIndex(idx);
-      snapTo(idx, true);
+      // animated:true로 보정하면 iOS Safari에서 별도 스크롤 애니메이션이
+      // 다시 시작되어 "새로고침"처럼 끊겨 보임. animated:false라서 어긋난
+      // 경우 즉시 미세 보정만 들어가고, 이미 맞아 있으면 no-op.
+      snapTo(idx, false);
     }, SNAP_DEBOUNCE_MS);
   };
 
