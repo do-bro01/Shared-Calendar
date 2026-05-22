@@ -1,7 +1,8 @@
 // iOS 캘린더 앱 스타일 휠 피커.
 // 중앙 행이 선택값이고, 위/아래로 갈수록 원통처럼 휘어 보이며 흐려짐.
-// 시각 효과는 모두 Animated.scrollY 기반 interpolation으로 처리해
-// 스크롤 중에도 끊김 없이 부드럽게 변함.
+// 시각 효과는 모두 Animated.scrollY 기반 interpolation으로 처리.
+// 웹에선 iOS Safari가 momentum 감속 도중 scroll 이벤트를 띄우지 않아 보간이 얼었다가
+// 끝에 한꺼번에 catch-up되는 끊김이 있음 → rAF로 직접 scrollTop을 폴링해 우회.
 import React, { useEffect, useRef } from "react";
 import { View, Text, Animated, Platform } from "react-native";
 
@@ -12,8 +13,8 @@ export const WHEEL_VISIBLE_COUNT = 7;
 const DEFAULT_ITEM_HEIGHT = WHEEL_ITEM_HEIGHT;
 const DEFAULT_VISIBLE_COUNT = WHEEL_VISIBLE_COUNT; // 가운데 + 위3 + 아래3
 
-// 스크롤이 멈춘 직후 가장 가까운 항목으로 스냅하기 위한 디바운스 시간 (ms)
-const SNAP_DEBOUNCE_MS = 140;
+// 스크롤이 정말 멈췄다고 판단할 정지 프레임 수 (~133ms @ 60fps)
+const STILL_FRAMES = 8;
 
 export default function WheelPicker({
   items,
@@ -31,10 +32,12 @@ export default function WheelPicker({
 }) {
   const scrollRef = useRef(null);
   const lastReportedIndexRef = useRef(selectedIndex);
-  const snapTimerRef = useRef(null);
   const scrollY = useRef(
     new Animated.Value(selectedIndex * itemHeight),
   ).current;
+  // rAF effect가 매 렌더마다 재실행되지 않도록 onChange는 ref로 들고 다닌다.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const sideCount = Math.floor(visibleCount / 2);
   const containerHeight = itemHeight * visibleCount;
@@ -49,66 +52,76 @@ export default function WheelPicker({
     lastReportedIndexRef.current = selectedIndex;
   }, [selectedIndex, itemHeight, scrollY]);
 
-  useEffect(() => {
-    return () => {
-      if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
-    };
-  }, []);
-
-  // 웹에선 스크롤러 자체의 scroll-snap-type을 DOM에 직접 깐다.
-  // mandatory는 iOS Safari momentum 감속 중에도 강제 스냅을 끼워 넣어 끊겨 보임 →
-  // proximity는 momentum이 자연스럽게 감속한 뒤 가까운 항목에만 부드럽게 안착.
-  // 각 자식의 scroll-snap-align / will-change / backface-visibility는 React style prop으로
-  // 넘긴다(Animated가 매 프레임 transform을 덮어쓰므로 DOM에 직접 적으면 사라짐).
+  // 웹: 스크롤러에 CSS scroll-snap을 직접 깐다.
+  // - proximity는 momentum이 자연스럽게 감속한 뒤 가까운 항목에만 부드럽게 안착(mandatory와 달리 강제 점프가 없음).
+  // - scroll-behavior: smooth → CSS scroll-snap의 안착이 instant jump가 아니라 애니메이션으로 일어남.
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const node = scrollRef.current?.getScrollableNode?.() ?? scrollRef.current;
     if (!node || !node.style) return;
     node.style.scrollSnapType = "y proximity";
+    node.style.scrollBehavior = "smooth";
     node.style.WebkitOverflowScrolling = "touch";
   }, []);
 
+  // 웹: rAF로 scrollTop을 매 프레임 폴링 → Animated.Value 동기화 + 정지 감지 후 commit.
+  // 왜:
+  // - iOS Safari는 momentum 감속 동안 scroll 이벤트를 띄우지 않을 수 있음. onScroll에 의존하면
+  //   휠 보간(rotateX/scale/opacity)이 얼어붙다가 모멘텀 끝나는 순간 한꺼번에 갱신되어 "툭" 끊겨 보임.
+  // - rAF는 이벤트와 무관하게 매 프레임 돌기 때문에 보간이 끊김 없이 따라감.
+  // - 또한 정지 프레임이 일정 수 쌓이면 그 시점에 onChange를 호출 → setTimeout 기반 commit이
+  //   "이벤트가 안 뜨는 환경"에서 잘못된 시점에 commit하던 버그도 회피.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const node = scrollRef.current?.getScrollableNode?.() ?? scrollRef.current;
+    if (!node) return;
+
+    let rafId = 0;
+    let lastTop = typeof node.scrollTop === "number" ? node.scrollTop : 0;
+    let stillFrames = 0;
+    let dirty = false; // 한 번이라도 움직였고 아직 commit 안 된 상태
+
+    const tick = () => {
+      const current = typeof node.scrollTop === "number" ? node.scrollTop : 0;
+      if (current !== lastTop) {
+        lastTop = current;
+        stillFrames = 0;
+        dirty = true;
+        scrollY.setValue(current);
+      } else if (dirty) {
+        stillFrames++;
+        if (stillFrames >= STILL_FRAMES) {
+          const idx = Math.max(
+            0,
+            Math.min(items.length - 1, Math.round(current / itemHeight)),
+          );
+          if (idx !== lastReportedIndexRef.current) {
+            lastReportedIndexRef.current = idx;
+            onChangeRef.current?.(idx);
+          }
+          dirty = false;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [scrollY, itemHeight, items.length]);
+
   const clamp = (i) => Math.max(0, Math.min(items.length - 1, i));
 
-  const commitIndex = (idx) => {
-    if (idx !== lastReportedIndexRef.current) {
-      lastReportedIndexRef.current = idx;
-      onChange(idx);
-    }
-  };
-
-  const snapTo = (idx, animated = true) => {
-    scrollRef.current?.scrollTo({ y: idx * itemHeight, animated });
-  };
-
+  // 네이티브 전용: 모멘텀 끝났을 때 정렬 + commit (web에선 rAF가 담당).
   const handleMomentumEnd = (e) => {
     const offsetY = e.nativeEvent.contentOffset.y;
     const idx = clamp(Math.round(offsetY / itemHeight));
-    commitIndex(idx);
-    // 웹에서는 우리가 scrollTo를 호출하면 iOS Safari의 momentum/터치 상태와
-    // 충돌해 위치가 튀는 문제가 있음. 시각적 스냅은 snapToInterval(=CSS
-    // scroll-snap)에 맡기고 여기서는 index만 부모에 알림.
-    if (Platform.OS !== "web") {
-      snapTo(idx, true);
+    if (idx !== lastReportedIndexRef.current) {
+      lastReportedIndexRef.current = idx;
+      onChangeRef.current?.(idx);
     }
-  };
-
-  // 웹은 momentum 이벤트가 누락될 수 있으니, 스크롤이 멈춘 직후 한 번 더
-  // index를 커밋해 부모 상태와 휠 위치가 어긋나지 않게 한다. scrollTo는 부르지 않음.
-  const scheduleWebCommit = (offsetY) => {
-    if (Platform.OS !== "web") return;
-    if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
-    snapTimerRef.current = setTimeout(() => {
-      const idx = clamp(Math.round(offsetY / itemHeight));
-      commitIndex(idx);
-    }, SNAP_DEBOUNCE_MS);
-  };
-
-  // 네이티브 드라이버는 web에서는 무시되지만, 안전하게 플래그로 분기
-  const useNative = Platform.OS !== "web";
-
-  const handleScrollListener = (e) => {
-    scheduleWebCommit(e.nativeEvent.contentOffset.y);
+    scrollRef.current?.scrollTo({ y: idx * itemHeight, animated: true });
   };
 
   return (
@@ -141,11 +154,18 @@ export default function WheelPicker({
         showsVerticalScrollIndicator={false}
         decelerationRate="fast"
         scrollEventThrottle={1}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: useNative, listener: handleScrollListener },
-        )}
-        onMomentumScrollEnd={handleMomentumEnd}
+        // 웹은 rAF로 scrollY를 직접 갱신하므로 onScroll에 Animated.event를 묶을 필요 없음.
+        onScroll={
+          Platform.OS === "web"
+            ? undefined
+            : Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: true },
+              )
+        }
+        onMomentumScrollEnd={
+          Platform.OS === "web" ? undefined : handleMomentumEnd
+        }
         contentContainerStyle={{
           paddingTop: padding,
           paddingBottom: padding,
