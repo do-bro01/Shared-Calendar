@@ -684,7 +684,7 @@ const EventModal = ({
                 color={palette.label}
                 style={{ marginRight: 10 }}
               />
-              <DateChunk which="start" />
+              {DateChunk({ which: "start" })}
               <Text
                 style={{
                   fontSize: 16,
@@ -695,7 +695,7 @@ const EventModal = ({
               >
                 {">"}
               </Text>
-              <DateChunk which="end" />
+              {DateChunk({ which: "end" })}
               <TouchableOpacity
                 onPress={onToggleAllDay}
                 style={{
@@ -727,7 +727,9 @@ const EventModal = ({
                 pickerYRef.current = e.nativeEvent.layout.y;
               }}
             >
-              <PickerArea />
+              {/* 함수 호출로 인라인 — <PickerArea />로 쓰면 EventModal 리렌더마다
+                  새 컴포넌트 type으로 인식되어 WheelPicker 3개가 매번 remount됨 (날짜 휠 1461개 재생성). */}
+              {PickerArea()}
             </View>
 
             {/* 색상 */}

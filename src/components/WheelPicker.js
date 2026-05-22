@@ -229,13 +229,12 @@ export default function WheelPicker({
                   { translateY },
                   { scale },
                 ],
-                // 웹: 각 항목 중심이 컨테이너 중심에 스냅 + GPU 컴포지터로 올려 페인트 가속.
+                // 웹: 각 항목 중심이 컨테이너 중심에 스냅.
+                // will-change/backface-visibility는 의도적으로 빼둠 —
+                // 항목 수가 많아질 때(예: 날짜 휠 1461개) iOS Safari가 항목마다 GPU 레이어를
+                // 생성해 마운트/렌더가 급격히 느려짐.
                 ...(Platform.OS === "web"
-                  ? {
-                      scrollSnapAlign: "center",
-                      willChange: "transform",
-                      backfaceVisibility: "hidden",
-                    }
+                  ? { scrollSnapAlign: "center" }
                   : null),
               }}
             >
