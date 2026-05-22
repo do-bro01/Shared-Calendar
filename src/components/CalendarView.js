@@ -1,5 +1,5 @@
 // SC/src/components/CalendarView.js
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,17 +8,32 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  Dimensions,
 } from "react-native";
-import { Calendar } from "react-native-calendars";
+import { CalendarList } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EventModal from "./EventModal";
 import Button from "./Button";
 import { useTheme } from "../context/ThemeContext";
+import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 
 // MainTabNavigator의 tabBarStyle: bottom 12 + height 72
 const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
 const GAP_ABOVE_TAB_BAR = 10;
+
+// CalendarList horizontal 모드의 페이지 폭 = 화면폭 - 좌우 패딩 16*2
+const HORIZONTAL_PADDING = Spacing.lg;
+const getCalendarWidth = () =>
+  Dimensions.get("window").width - HORIZONTAL_PADDING * 2;
+
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+const formatGreetingDate = (date) => {
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  const wd = WEEKDAY_KO[date.getDay()];
+  return `${m}월 ${d}일 (${wd})`;
+};
 
 export default function CalendarView({
   selectedDate,
@@ -27,13 +42,16 @@ export default function CalendarView({
   onAddEvent,
   isShared = false,
   title = "캘린더",
+  useGreeting = false,
+  greetingName,
   onDeleteEvent,
   onEditEvent,
 }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [calendarWidth, setCalendarWidth] = useState(getCalendarWidth());
   const theme = useTheme();
-  const colors = theme?.colors || { tint: "#395fa5ff" };
+  const colors = theme.colors;
   const insets = useSafeAreaInsets();
   const addButtonMarginBottom = Math.max(
     8,
@@ -77,7 +95,6 @@ export default function CalendarView({
   const getMarkedDates = () => {
     const marked = {};
 
-    // 시작일 빠른 순, 같으면 긴 일정 먼저 (lane 안정적 배치)
     const sorted = [...events].sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
       const aEnd = a.endDate || a.date;
@@ -85,7 +102,6 @@ export default function CalendarView({
       return bEnd.localeCompare(aEnd);
     });
 
-    // lane[i] = 그 lane에서 마지막 일정의 종료일
     const lanes = [];
     const eventLane = new Map();
 
@@ -109,7 +125,6 @@ export default function CalendarView({
 
     const totalLanes = lanes.length;
 
-    // 각 날짜에 lane 수만큼 슬롯 만들고, 해당 lane에 period 배치
     for (const ev of sorted) {
       const lane = eventLane.get(ev.id);
       const start = ev.date;
@@ -133,14 +148,12 @@ export default function CalendarView({
       }
     }
 
-    // 빈 lane은 투명 placeholder로 채워 lane 정렬 유지
     for (const date in marked) {
       marked[date].periods = marked[date].periods.map(
         (p) => p || { color: "transparent" },
       );
     }
 
-    // 선택된 날짜
     if (!marked[selectedDate]) {
       marked[selectedDate] = { selected: true, selectedColor: colors.tint };
     } else {
@@ -151,52 +164,103 @@ export default function CalendarView({
     return marked;
   };
 
+  // 그리팅 헤더용: 오늘 일정 개수 (공휴일 제외)
+  const greetingMeta = useMemo(() => {
+    if (!useGreeting) return null;
+    const today = new Date();
+    const todayKey = today.toISOString().split("T")[0];
+    const todayEvents = events.filter((ev) => {
+      if (ev.isHoliday) return false;
+      const startDate = ev.date;
+      const endDate = ev.endDate || ev.date;
+      return todayKey >= startDate && todayKey <= endDate;
+    });
+    return {
+      dateLabel: formatGreetingDate(today),
+      count: todayEvents.length,
+    };
+  }, [events, useGreeting]);
+
+  const renderHeader = () => {
+    if (useGreeting && greetingMeta) {
+      const titleText = greetingName ? `안녕, ${greetingName}` : "안녕하세요";
+      return (
+        <View style={styles.greetingHeader}>
+          <Text style={[styles.greetingTitle, { color: colors.text }]}>
+            {titleText}
+          </Text>
+          <Text style={[styles.greetingSubtitle, { color: colors.muted }]}>
+            오늘 일정 {greetingMeta.count}개 · {greetingMeta.dateLabel}
+          </Text>
+        </View>
+      );
+    }
+
+    if (!title) return null;
+
+    return (
+      <Text
+        style={[
+          isShared ? styles.headerTitleShared : styles.headerTitle,
+          { color: colors.text },
+        ]}
+      >
+        {title}
+      </Text>
+    );
+  };
+
   return (
     <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={() => setCalendarWidth(getCalendarWidth())}
     >
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text
-          style={[
-            isShared ? styles.headerTitleShared : styles.headerTitle,
-            { color: theme.mode === "dark" ? "#ffffff" : "#000000" },
-          ]}
-        >
-          {title}
-        </Text>
+        {renderHeader()}
+
         <View
           style={[
             styles.calendarWrapper,
-            { backgroundColor: theme.colors.background },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
           ]}
         >
-          <Calendar
-            key={theme.mode}
+          <CalendarList
+            key={`${theme.mode}-${calendarWidth}`}
+            horizontal
+            pagingEnabled
+            pastScrollRange={24}
+            futureScrollRange={24}
+            calendarWidth={calendarWidth}
+            showScrollIndicator={false}
+            current={selectedDate}
             onDayPress={(day) => onSelectDate(day.dateString)}
             markingType={"multi-period"}
             markedDates={getMarkedDates()}
-            enableSwipeMonths={true}
             theme={{
-              calendarBackground:
-                theme.mode === "dark" ? theme.colors.background : "#ffffff",
-              monthTextColor: theme.mode === "dark" ? "#ffffff" : "#000000",
-              textSectionTitleColor:
-                theme.mode === "dark" ? "#ffffff" : "#000000",
-              textDayColor: theme.colors.text,
+              calendarBackground: colors.card,
+              monthTextColor: colors.text,
+              textSectionTitleColor: colors.text,
+              textDayColor: colors.text,
               selectedDayBackgroundColor: colors.tint,
               selectedDayTextColor: "#fff",
               todayTextColor: colors.tint,
               todayBackgroundColor: "transparent",
               arrowColor: colors.tint,
-              textMonthFontSize: 18,
-              textMonthFontWeight: "700",
-              textDayFontWeight: "500",
-              textDayHeaderFontWeight: "600",
-              textDayHeaderFontSize: 12,
+              textMonthFontSize: Typography.headline,
+              textMonthFontWeight: Typography.weights.bold,
+              textDayFontWeight: Typography.weights.medium,
+              textDayHeaderFontWeight: Typography.weights.semibold,
+              textDayHeaderFontSize: Typography.caption,
+              textMonthFontFamily: Typography.fontFamily,
+              textDayFontFamily: Typography.fontFamily,
+              textDayHeaderFontFamily: Typography.fontFamily,
             }}
           />
         </View>
@@ -204,23 +268,19 @@ export default function CalendarView({
         <View style={styles.titleRow}>
           <MaterialIcons
             name="calendar-today"
-            size={20}
+            size={18}
             color={colors.tint}
-            style={{ marginRight: 4, marginTop: -2 }}
+            style={{ marginRight: 6, marginTop: -1 }}
           />
-          <Text style={[styles.titleText, { color: theme.colors.text }]}>
+          <Text style={[styles.titleText, { color: colors.text }]}>
             {selectedDate} 일정
           </Text>
         </View>
 
         <View
-          style={[
-            styles.eventList,
-            { backgroundColor: theme.colors.background },
-          ]}
+          style={[styles.eventList, { backgroundColor: colors.background }]}
         >
           {events.filter((ev) => {
-            // 선택된 날짜가 일정의 시작일과 종료일 사이에 있는지 확인 (문자열 비교)
             const startDate = ev.date;
             const endDate = ev.endDate || ev.date;
             return selectedDate >= startDate && selectedDate <= endDate;
@@ -229,13 +289,13 @@ export default function CalendarView({
               <MaterialIcons
                 name="event-available"
                 size={40}
-                color={theme.colors.text}
+                color={colors.text}
                 style={{ opacity: 0.3 }}
               />
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
                 일정 없음
               </Text>
-              <Text style={[styles.emptyHint, { color: theme.colors.text }]}>
+              <Text style={[styles.emptyHint, { color: colors.muted }]}>
                 아래 버튼으로 새 일정을 추가해보세요
               </Text>
             </View>
@@ -247,7 +307,6 @@ export default function CalendarView({
                 return selectedDate >= startDate && selectedDate <= endDate;
               })
               .map((ev) => {
-                // 날짜 포맷팅
                 const formatDate = (dateStr) => {
                   const date = new Date(dateStr);
                   const month = date.getMonth() + 1;
@@ -255,7 +314,6 @@ export default function CalendarView({
                   return `${month}월${day}일`;
                 };
 
-                // HH:MM:SS → HH:MM 로 자르기
                 const trimTime = (t) =>
                   typeof t === "string" ? t.slice(0, 5) : t;
 
@@ -264,7 +322,6 @@ export default function CalendarView({
                     ? `${formatDate(ev.date)}~${formatDate(ev.endDate)}`
                     : formatDate(ev.date);
 
-                // 하루종일이 아닌 일정은 시간 표시 추가
                 const dateText =
                   !ev.isHoliday &&
                   ev.allDay === false &&
@@ -279,8 +336,8 @@ export default function CalendarView({
                     style={[
                       styles.eventItem,
                       {
-                        backgroundColor:
-                          theme.mode === "dark" ? "#222431ff" : "#EEE",
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
                       },
                     ]}
                     onPress={() => handleEventPress(ev)}
@@ -290,8 +347,10 @@ export default function CalendarView({
                         style={[
                           styles.eventText,
                           {
-                            color: ev.isHoliday ? "#e53935" : theme.colors.text,
-                            fontWeight: ev.isHoliday ? "700" : "400",
+                            color: ev.isHoliday ? "#e53935" : colors.text,
+                            fontWeight: ev.isHoliday
+                              ? Typography.weights.bold
+                              : Typography.weights.regular,
                           },
                         ]}
                       >
@@ -301,8 +360,8 @@ export default function CalendarView({
                         style={[
                           styles.eventDate,
                           {
-                            color: theme.colors.text,
-                            opacity: ev.isHoliday ? 0.9 : 0.7,
+                            color: colors.muted,
+                            opacity: ev.isHoliday ? 0.95 : 1,
                           },
                         ]}
                       >
@@ -316,7 +375,6 @@ export default function CalendarView({
         </View>
       </ScrollView>
 
-      {/* 일정 추가 버튼 (스크롤 영역 바깥, 하단 고정) */}
       <View
         style={[
           styles.addButtonWrapper,
@@ -333,7 +391,6 @@ export default function CalendarView({
         />
       </View>
 
-      {/* Event Modal */}
       <EventModal
         visible={modalVisible}
         onClose={() => {
@@ -371,107 +428,97 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   headerTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    marginBottom: 16,
-    marginTop: 8,
+    fontSize: Typography.title1,
+    fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.lg,
+    marginTop: Spacing.sm,
     textAlign: "center",
     alignSelf: "stretch",
-    height: 40,
-    lineHeight: 40,
   },
   headerTitleShared: {
-    fontSize: 30,
-    fontWeight: "800",
-    marginBottom: -20,
+    fontSize: Typography.title1,
+    fontWeight: Typography.weights.bold,
+    marginBottom: -Spacing.xl,
     marginTop: 0,
     textAlign: "center",
     alignSelf: "stretch",
-    height: 40,
-    lineHeight: 40,
   },
-  title: {
-    marginTop: 12,
-    marginBottom: 8,
-    fontSize: 18,
-    fontWeight: "bold",
-    paddingLeft: 8,
+  greetingHeader: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: 2,
+  },
+  greetingTitle: {
+    fontSize: Typography.title1,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: -0.4,
+  },
+  greetingSubtitle: {
+    fontSize: Typography.subhead,
+    fontWeight: Typography.weights.regular,
+    marginTop: 4,
+    letterSpacing: -0.1,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 12,
-    marginBottom: 8,
-    paddingLeft: 8,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    paddingLeft: Spacing.sm,
   },
   titleText: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: Typography.headline,
+    fontWeight: Typography.weights.bold,
   },
   calendarWrapper: {
-    borderRadius: 12,
+    borderRadius: Radius.md,
     overflow: "hidden",
-    marginBottom: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 1,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    ...Shadow.sm,
   },
   eventList: {
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  noEvent: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 20,
-    textAlign: "center",
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 32,
-    gap: 8,
+    paddingVertical: Spacing.xxl,
+    gap: Spacing.sm,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: Typography.body,
+    fontWeight: Typography.weights.semibold,
     opacity: 0.6,
   },
   emptyHint: {
-    fontSize: 13,
-    opacity: 0.4,
+    fontSize: Typography.footnote,
   },
   eventItem: {
     padding: 14,
-    backgroundColor: "#EEE",
-    borderRadius: 12,
+    borderRadius: Radius.md,
     marginBottom: 10,
     marginHorizontal: 0,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    borderWidth: 1,
+    ...Shadow.sm,
   },
   eventContent: {
     flex: 1,
   },
   eventText: {
-    fontSize: 16,
+    fontSize: Typography.body,
     marginBottom: 4,
   },
   eventDate: {
-    fontSize: 12,
-    opacity: 0.7,
+    fontSize: Typography.caption,
   },
   addButtonWrapper: {
     marginTop: 0,

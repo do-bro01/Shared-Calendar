@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import CalendarView from "../components/CalendarView";
 import { PersonalEventService } from "../services/PersonalEventService";
 import { GroupEventService } from "../services/GroupEventService";
+import { UserService } from "../services/UserService";
 import { getKoreanHolidaysForYear } from "../constants/koreanHolidays";
 import { refreshBus } from "../lib/refreshBus";
 
@@ -12,6 +13,7 @@ export default function PersonalCalendarScreen() {
     new Date().toISOString().split("T")[0]
   );
   const [refreshKey, setRefreshKey] = useState(0);
+  const [greetingName, setGreetingName] = useState("");
 
   useEffect(() => {
     const unsubscribe = PersonalEventService.listenPersonalEvents(setEvents);
@@ -21,6 +23,19 @@ export default function PersonalCalendarScreen() {
   useEffect(() => {
     return refreshBus.subscribe(() => setRefreshKey((k) => k + 1));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    UserService.getCurrentUserProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        setGreetingName(profile?.displayName || "");
+      })
+      .catch((err) => console.error("greeting load failed:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
 
   const handleAddEvent = async (eventData) => {
     try {
@@ -183,6 +198,8 @@ export default function PersonalCalendarScreen() {
       selectedDate={selectedDate}
       onSelectDate={handleSelectDate}
       isShared={false}
+      useGreeting
+      greetingName={greetingName}
       onAddEvent={handleAddEvent}
       onDeleteEvent={handleDeleteEvent}
       onEditEvent={handleEditEvent}

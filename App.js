@@ -1,14 +1,28 @@
 // SC/App.js
 import React, { useEffect, useState } from "react";
-import { StatusBar } from "react-native";
+import { StatusBar, Text, TextInput } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { supabase } from "./src/lib/supabaseClient";
 import { UserService } from "./src/services/UserService";
 import ThemeContext, { ThemeProvider } from "./src/context/ThemeContext";
+import { Typography } from "./constants/theme";
 
 import LoginScreen from "./src/screens/LoginScreen";
 import MainTabNavigator from "./src/navigation/MainTabNavigator";
+
+// 앱 전역 기본 폰트를 iOS 시스템 폰트(SF Pro)로 통일.
+// 웹에서는 Apple SD Gothic Neo / Pretendard 폴백 스택 사용 (constants/theme.ts).
+Text.defaultProps = Text.defaultProps || {};
+Text.defaultProps.style = [
+  { fontFamily: Typography.fontFamily },
+  Text.defaultProps.style,
+];
+TextInput.defaultProps = TextInput.defaultProps || {};
+TextInput.defaultProps.style = [
+  { fontFamily: Typography.fontFamily },
+  TextInput.defaultProps.style,
+];
 
 const Stack = createNativeStackNavigator();
 

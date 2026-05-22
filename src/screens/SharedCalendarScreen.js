@@ -23,6 +23,7 @@ import { getKoreanHolidaysForYear } from "../constants/koreanHolidays";
 import { refreshBus } from "../lib/refreshBus";
 import CalendarView from "../components/CalendarView";
 import Button from "../components/Button";
+import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 
 export default function SharedCalendarScreen() {
   const theme = useTheme();
@@ -174,10 +175,8 @@ export default function SharedCalendarScreen() {
               style={[
                 styles.groupItem,
                 {
-                  backgroundColor:
-                    theme.mode === "dark" ? "#222431ff" : "#ffffff",
-                  borderColor:
-                    theme.mode === "dark" ? "#2f3340" : "#ececf2",
+                  backgroundColor: theme.colors.card,
+                  borderColor: theme.colors.border,
                 },
               ]}
               onPress={() => setSelectedGroup(group.id)}
@@ -997,52 +996,49 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
   },
   backHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    marginTop: 8,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
   },
   title: {
-    fontSize: 30,
-    fontWeight: "700",
+    fontSize: Typography.title1,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: -0.4,
   },
   createButton: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.sm,
     gap: 6,
   },
   createButtonText: {
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: Typography.subhead,
+    fontWeight: Typography.weights.semibold,
   },
   groupList: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
   groupItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: Spacing.lg,
     paddingHorizontal: 14,
-    marginBottom: 12,
-    borderRadius: 12,
+    marginBottom: Spacing.md,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 1,
+    ...Shadow.sm,
   },
   groupInfo: {
     flexDirection: "row",
@@ -1050,12 +1046,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   groupName: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: Typography.headline,
+    fontWeight: Typography.weights.semibold,
     marginBottom: 4,
   },
   memberCount: {
-    fontSize: 13,
+    fontSize: Typography.footnote,
   },
   emptyContainer: {
     justifyContent: "center",
@@ -1063,22 +1059,22 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: Typography.body,
     opacity: 0.6,
   },
   dateText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: Typography.body,
+    fontWeight: Typography.weights.semibold,
   },
   backButton: {
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     alignItems: "center",
-    margin: 16,
+    margin: Spacing.lg,
   },
   backButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: Typography.body,
+    fontWeight: Typography.weights.bold,
   },
 });

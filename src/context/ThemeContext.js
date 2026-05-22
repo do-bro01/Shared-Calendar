@@ -1,5 +1,26 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Colors } from "../../constants/theme";
+import { Colors, Typography } from "../../constants/theme";
+
+const WEB_FONT_STYLE_ID = "sc-global-font";
+
+// react-native-web가 Text에 inline 'fontFamily: System'을 박는 걸 덮어쓰기 위해
+// !important 한 줄짜리 전역 스타일 시트를 한 번만 주입.
+const ensureWebFontStyle = () => {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(WEB_FONT_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = WEB_FONT_STYLE_ID;
+  style.textContent = `
+    body, [data-class~="r-fontFamily"], div, span, p, button, input, textarea, label {
+      font-family: ${Typography.fontFamily} !important;
+    }
+    /* MaterialIcons / FontAwesome 등 아이콘 폰트는 원본 유지 */
+    [class*="material-icons"], [class*="MaterialIcons"], i[class*="fa-"] {
+      font-family: revert !important;
+    }
+  `;
+  document.head.appendChild(style);
+};
 
 const ThemeContext = createContext();
 
@@ -22,6 +43,7 @@ const getInitialMode = () => {
 // 이 값을 localStorage에 저장해두면 다음 PWA 실행 시 올바른 색으로 시작됨.
 const applyWebTheme = (mode) => {
   if (typeof document === "undefined") return;
+  ensureWebFontStyle();
   const isDark = mode === "dark";
   const bgColor = isDark ? Colors.dark.background : Colors.light.background;
   const statusBarStyle = isDark ? "black" : "default";
