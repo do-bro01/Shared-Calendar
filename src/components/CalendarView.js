@@ -183,7 +183,9 @@ export default function CalendarView({
 
   const renderHeader = () => {
     if (useGreeting && greetingMeta) {
-      const titleText = greetingName ? `안녕, ${greetingName}` : "안녕하세요";
+      const titleText = greetingName
+        ? `안녕하세요, ${greetingName}님!`
+        : "안녕하세요!";
       return (
         <View style={styles.greetingHeader}>
           <Text style={[styles.greetingTitle, { color: colors.text }]}>

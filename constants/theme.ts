@@ -1,5 +1,3 @@
-import { Platform } from "react-native";
-
 const tintColor = "#395fa5ff";
 
 export const Colors = {
@@ -41,14 +39,11 @@ export const Radius = {
   full: 9999,
 };
 
-// iOS는 SF Pro / 안드는 Roboto / 웹은 Apple 폰트 스택 (한글 → Apple SD Gothic Neo)
+// iOS는 SF Pro / 안드는 Roboto / 웹은 RN-web가 'System'을 Apple 시스템 스택으로 자동 확장
+// (-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, ...).
+// 한글 글리프는 OS 폴백(iOS: Apple SD Gothic Neo / macOS Safari: 동일)으로 자연스럽게 처리됨.
 export const Typography = {
-  fontFamily: Platform.select({
-    ios: "System",
-    android: "System",
-    default:
-      '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard, system-ui, sans-serif',
-  }) as string,
+  fontFamily: "System",
   largeTitle: 34,
   title1: 28,
   title2: 22,
