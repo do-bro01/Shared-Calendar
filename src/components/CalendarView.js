@@ -10,11 +10,11 @@ import {
   Alert,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
-import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EventModal from "./EventModal";
 import Button from "./Button";
 import { useTheme } from "../context/ThemeContext";
+import { CalendarIcon, AddIcon, EventAvailableIcon } from "./icons";
 
 // MainTabNavigator의 tabBarStyle: bottom 12 + height 72
 const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
@@ -179,6 +179,7 @@ export default function CalendarView({
           onDayPress={(day) => onSelectDate(day.dateString)}
           markingType={"multi-period"}
           markedDates={getMarkedDates()}
+          enableSwipeMonths={true}
           theme={{
             calendarBackground:
               theme.mode === "dark" ? theme.colors.background : "#ffffff",
@@ -200,9 +201,12 @@ export default function CalendarView({
         />
       </View>
 
-      <Text style={[styles.title, { color: theme.colors.text }]}>
-        🗓️ {selectedDate} 일정
-      </Text>
+      <View style={styles.titleRow}>
+        <CalendarIcon size={20} color={theme.colors.text} style={{ marginRight: 8 }} />
+        <Text style={[styles.title, styles.titleText, { color: theme.colors.text }]}>
+          {selectedDate} 일정
+        </Text>
+      </View>
 
       <View
         style={[styles.eventList, { backgroundColor: theme.colors.background }]}
@@ -214,8 +218,7 @@ export default function CalendarView({
           return selectedDate >= startDate && selectedDate <= endDate;
         }).length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialIcons
-              name="event-available"
+            <EventAvailableIcon
               size={40}
               color={theme.colors.text}
               style={{ opacity: 0.3 }}
