@@ -48,12 +48,21 @@ export default function WheelPicker({
     if (!scrollRef.current) return;
     const y = selectedIndex * itemHeight;
     if (Platform.OS === "web") {
-      // CSS scroll-behavior: smooth가 걸려 있어서 scrollTo({animated:false})가
-      // 애니메이션돼 버리는 문제 회피. scrollTop 직접 할당은 항상 즉시 반영됨.
-      // (allDay 토글로 휠이 재마운트될 때 0에서 목표까지 "주르륵 스크롤"되던 원인)
       const node =
         scrollRef.current.getScrollableNode?.() ?? scrollRef.current;
-      if (node) node.scrollTop = y;
+      if (node) {
+        // scrollTop setter / scrollTo({animated:false})는 둘 다 CSS scroll-behavior를
+        // 따라가서, smooth가 걸려 있으면 0 → 목표까지 애니메이션돼 버린다
+        // (allDay 토글마다 휠이 "주르륵" 스크롤되던 원인).
+        // → 그 순간만 auto로 강제했다가 다음 프레임에 원복. 사용자 스크롤 종료 후
+        //   CSS scroll-snap 안착은 그대로 smooth 유지된다.
+        const prev = node.style.scrollBehavior;
+        node.style.scrollBehavior = "auto";
+        node.scrollTop = y;
+        requestAnimationFrame(() => {
+          node.style.scrollBehavior = prev || "smooth";
+        });
+      }
     } else {
       scrollRef.current.scrollTo({ y, animated: false });
     }
