@@ -1,5 +1,5 @@
 // SC/src/components/CalendarView.js
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -23,9 +23,10 @@ const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
 const GAP_ABOVE_TAB_BAR = 10;
 
 // CalendarList horizontal 모드의 페이지 폭 = 화면폭 - 좌우 패딩 16*2
+// 정수로 floor — 소수점 폭이면 paging 스크롤 위치가 매번 어긋남
 const HORIZONTAL_PADDING = Spacing.lg;
 const getCalendarWidth = () =>
-  Dimensions.get("window").width - HORIZONTAL_PADDING * 2;
+  Math.floor(Dimensions.get("window").width - HORIZONTAL_PADDING * 2);
 
 const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const formatGreetingDate = (date) => {
@@ -50,9 +51,25 @@ export default function CalendarView({
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [calendarWidth, setCalendarWidth] = useState(getCalendarWidth());
+  const calendarListRef = useRef(null);
   const theme = useTheme();
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
+
+  // react-native-calendars의 CalendarList는 horizontal + pagingEnabled 조합에서
+  // initialScrollIndex가 종종 무시되어 첫 페이지(과거 끝)부터 시작하는 이슈가 있음.
+  // 또한 내부 getItemLayout이 빈 deps의 useCallback이라 calendarWidth 변경 시
+  // stale한 calendarSize를 반환. → 마운트(또는 width 안정화) 직후 ref로 명시 스크롤.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      calendarListRef.current?.scrollToDay(selectedDate, 0, false);
+    }, 80);
+    return () => clearTimeout(id);
+    // selectedDate는 의도적으로 deps에서 제외: 사용자가 다른 월의 날짜를 선택해도
+    // 화면을 그쪽으로 강제 스크롤하지 않음. width 안정화/리마운트 시점에만 보정.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarWidth, theme.mode]);
+
   const addButtonMarginBottom = Math.max(
     8,
     TAB_BAR_TOP_FROM_SCREEN_BOTTOM + GAP_ABOVE_TAB_BAR - insets.bottom,
@@ -234,6 +251,7 @@ export default function CalendarView({
           ]}
         >
           <CalendarList
+            ref={calendarListRef}
             key={`${theme.mode}-${calendarWidth}`}
             horizontal
             pagingEnabled
