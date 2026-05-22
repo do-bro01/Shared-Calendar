@@ -55,6 +55,25 @@ export default function WheelPicker({
     };
   }, []);
 
+  // 웹에선 CSS scroll-snap을 직접 깐다.
+  // react-native-web의 snapToInterval은 mandatory를 켜지만 자식의 snap-align을
+  // 안 깔아서, 애매한 위치에서 브라우저가 (0,0)으로 스냅해 "맨 위로" 튀는 문제를 일으킴.
+  // 우리가 직접 컨테이너와 자식 모두에 scroll-snap을 적용해 정확한 스냅 포인트를 정의한다.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const node = scrollRef.current?.getScrollableNode?.() ?? scrollRef.current;
+    if (!node || !node.style) return;
+    node.style.scrollSnapType = "y mandatory";
+    node.style.WebkitOverflowScrolling = "touch";
+    // 자식(각 항목 wrapper)에 center 스냅 부여
+    const children = node.children?.[0]?.children ?? [];
+    for (const child of children) {
+      if (child && child.style) {
+        child.style.scrollSnapAlign = "center";
+      }
+    }
+  }, [items.length]);
+
   const clamp = (i) => Math.max(0, Math.min(items.length - 1, i));
 
   const commitIndex = (idx) => {
@@ -72,33 +91,30 @@ export default function WheelPicker({
     const offsetY = e.nativeEvent.contentOffset.y;
     const idx = clamp(Math.round(offsetY / itemHeight));
     commitIndex(idx);
-    // 웹에서는 scheduleWebSnap이 이어서 보정하므로 여기서 또 scrollTo를 부르면
-    // 같은 위치로 두 번 애니메이션이 걸려 "새로고침"처럼 끊겨 보임. 네이티브에서만 스냅.
+    // 웹에서는 우리가 scrollTo를 호출하면 iOS Safari의 momentum/터치 상태와
+    // 충돌해 위치가 튀는 문제가 있음. 시각적 스냅은 snapToInterval(=CSS
+    // scroll-snap)에 맡기고 여기서는 index만 부모에 알림.
     if (Platform.OS !== "web") {
       snapTo(idx, true);
     }
   };
 
-  // 웹은 모멘텀 이벤트가 안 발생할 수 있어 onScroll에서 디바운스로 스냅 보조.
-  const scheduleWebSnap = (offsetY) => {
+  // 웹은 momentum 이벤트가 누락될 수 있으니, 스크롤이 멈춘 직후 한 번 더
+  // index를 커밋해 부모 상태와 휠 위치가 어긋나지 않게 한다. scrollTo는 부르지 않음.
+  const scheduleWebCommit = (offsetY) => {
     if (Platform.OS !== "web") return;
     if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
     snapTimerRef.current = setTimeout(() => {
       const idx = clamp(Math.round(offsetY / itemHeight));
       commitIndex(idx);
-      // animated:true로 보정하면 iOS Safari에서 별도 스크롤 애니메이션이
-      // 다시 시작되어 "새로고침"처럼 끊겨 보임. animated:false라서 어긋난
-      // 경우 즉시 미세 보정만 들어가고, 이미 맞아 있으면 no-op.
-      snapTo(idx, false);
     }, SNAP_DEBOUNCE_MS);
   };
 
   // 네이티브 드라이버는 web에서는 무시되지만, 안전하게 플래그로 분기
   const useNative = Platform.OS !== "web";
 
-  // 웹용 디바운스 스냅을 위해 스크롤 오프셋을 받아 타이머를 다시 깐다.
   const handleScrollListener = (e) => {
-    scheduleWebSnap(e.nativeEvent.contentOffset.y);
+    scheduleWebCommit(e.nativeEvent.contentOffset.y);
   };
 
   return (
@@ -129,9 +145,6 @@ export default function WheelPicker({
       <Animated.ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
-        snapToInterval={itemHeight}
-        snapToAlignment="start"
-        disableIntervalMomentum
         decelerationRate="fast"
         scrollEventThrottle={1}
         onScroll={Animated.event(
