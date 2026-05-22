@@ -15,7 +15,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { GroupCalendarService } from "../services/GroupCalendarService";
 import { useTheme } from "../context/ThemeContext";
-import WheelPicker from "./WheelPicker";
+import WheelPicker, {
+  WHEEL_ITEM_HEIGHT,
+  WHEEL_VISIBLE_COUNT,
+} from "./WheelPicker";
 
 const COLOR_OPTIONS = [
   { name: "기본", value: "#395fa5ff" },
@@ -33,10 +36,20 @@ const HOUR_ITEMS = Array.from({ length: 24 }, (_, i) => ({
   value: i,
   label: String(i).padStart(2, "0"),
 }));
-const MINUTE_ITEMS = Array.from({ length: 60 }, (_, i) => ({
-  value: i,
-  label: String(i).padStart(2, "0"),
-}));
+// 분은 5분 단위 (00, 05, 10, ..., 55)
+const MINUTE_STEP = 5;
+const MINUTE_ITEMS = Array.from(
+  { length: Math.floor(60 / MINUTE_STEP) },
+  (_, i) => ({
+    value: i * MINUTE_STEP,
+    label: String(i * MINUTE_STEP).padStart(2, "0"),
+  })
+);
+// 임의 분 값을 가장 가까운 5분 슬롯 인덱스로 변환
+const minuteToWheelIndex = (m) => {
+  const idx = Math.round(m / MINUTE_STEP);
+  return Math.max(0, Math.min(MINUTE_ITEMS.length - 1, idx));
+};
 
 // 하루종일 ON 휠용 년/월 옵션 (고정 범위로 두면 휠 위치가 흔들리지 않음)
 const YEAR_MIN = 2010;
@@ -238,11 +251,11 @@ const EventModal = ({
         setStartDate(s);
         setEndDate(e);
       } else {
-        // OFF로 전환: 기본 시간 0:00 / 23:59
+        // OFF로 전환: 기본 시간 0:00 / 23:55 (분 휠이 5분 단위라 23:55가 마지막 슬롯)
         const s = new Date(startDate);
         s.setHours(0, 0, 0, 0);
         const e = new Date(endDate);
-        e.setHours(23, 59, 0, 0);
+        e.setHours(23, 55, 0, 0);
         setStartDate(s);
         setEndDate(e);
       }
@@ -341,8 +354,10 @@ const EventModal = ({
     setCurrentEditDate(d);
   };
   const onMinuteChange = (idx) => {
+    const picked = MINUTE_ITEMS[idx];
+    if (!picked) return;
     const d = new Date(currentEditDate);
-    d.setMinutes(idx);
+    d.setMinutes(picked.value);
     setCurrentEditDate(d);
   };
 
@@ -471,6 +486,37 @@ const EventModal = ({
     // 이하: Web 전용 — 자체 WheelPicker
     const wheelText = palette.text;
 
+    // 휠 컬럼들 위로 가로로 길게 이어지는 단일 하이라이트.
+    // 각 WheelPicker의 자체 알약은 showHighlight={false}로 끄고,
+    // 가운데 행 위치(sideCount * itemHeight)에 하나만 그린다.
+    const sideCount = Math.floor(WHEEL_VISIBLE_COUNT / 2);
+    const highlightTop = sideCount * WHEEL_ITEM_HEIGHT;
+
+    // 좌우 간격을 좁히기 위해 row를 가운데 정렬하고 너비를 작게 묶는다.
+    // 하루종일 OFF의 첫 컬럼(날짜) 라벨이 가장 길어서 거기에 맞춘 폭.
+    const wheelRowWrapper = {
+      marginTop: 8,
+      marginBottom: 16,
+      alignSelf: "center",
+      width: "100%",
+      maxWidth: allDay ? 200 : 240,
+      position: "relative",
+    };
+    const singleHighlight = (
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: highlightTop,
+          left: 0,
+          right: 0,
+          height: WHEEL_ITEM_HEIGHT,
+          backgroundColor: palette.wheelHighlight,
+          borderRadius: WHEEL_ITEM_HEIGHT / 2,
+        }}
+      />
+    );
+
     if (allDay) {
       const yearIdx = YEAR_ITEMS.findIndex(
         (it) => it.value === currentEditDate.getFullYear()
@@ -479,40 +525,36 @@ const EventModal = ({
       const dayIdx = currentEditDate.getDate() - 1;
 
       return (
-        <View
-          style={{
-            flexDirection: "row",
-            marginTop: 8,
-            marginBottom: 16,
-            paddingHorizontal: 8,
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <WheelPicker
-              items={YEAR_ITEMS}
-              selectedIndex={Math.max(0, yearIdx)}
-              onChange={onYearChange}
-              textColor={wheelText}
-              highlightColor={palette.wheelHighlight}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <WheelPicker
-              items={MONTH_ITEMS}
-              selectedIndex={monthIdx}
-              onChange={onMonthChange}
-              textColor={wheelText}
-              highlightColor={palette.wheelHighlight}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <WheelPicker
-              items={dayItems}
-              selectedIndex={Math.min(dayIdx, dayItems.length - 1)}
-              onChange={onDayChange}
-              textColor={wheelText}
-              highlightColor={palette.wheelHighlight}
-            />
+        <View style={wheelRowWrapper}>
+          {singleHighlight}
+          <View style={{ flexDirection: "row" }}>
+            <View style={{ flex: 1 }}>
+              <WheelPicker
+                items={YEAR_ITEMS}
+                selectedIndex={Math.max(0, yearIdx)}
+                onChange={onYearChange}
+                textColor={wheelText}
+                showHighlight={false}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <WheelPicker
+                items={MONTH_ITEMS}
+                selectedIndex={monthIdx}
+                onChange={onMonthChange}
+                textColor={wheelText}
+                showHighlight={false}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <WheelPicker
+                items={dayItems}
+                selectedIndex={Math.min(dayIdx, dayItems.length - 1)}
+                onChange={onDayChange}
+                textColor={wheelText}
+                showHighlight={false}
+              />
+            </View>
           </View>
         </View>
       );
@@ -520,42 +562,36 @@ const EventModal = ({
 
     // 하루종일 OFF: 날짜 / 시 / 분
     return (
-      <View
-        style={{
-          flexDirection: "row",
-          marginTop: 8,
-          marginBottom: 16,
-          paddingHorizontal: 8,
-        }}
-      >
-        <View style={{ flex: 2 }}>
-          <WheelPicker
-            items={dateItems}
-            selectedIndex={dateIndex}
-            onChange={onDateOffsetChange}
-            textColor={wheelText}
-            highlightColor={palette.wheelHighlight}
-            fontSize={16}
-            selectedFontSize={17}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <WheelPicker
-            items={HOUR_ITEMS}
-            selectedIndex={currentEditDate.getHours()}
-            onChange={onHourChange}
-            textColor={wheelText}
-            highlightColor={palette.wheelHighlight}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <WheelPicker
-            items={MINUTE_ITEMS}
-            selectedIndex={currentEditDate.getMinutes()}
-            onChange={onMinuteChange}
-            textColor={wheelText}
-            highlightColor={palette.wheelHighlight}
-          />
+      <View style={wheelRowWrapper}>
+        {singleHighlight}
+        <View style={{ flexDirection: "row" }}>
+          <View style={{ flex: 2 }}>
+            <WheelPicker
+              items={dateItems}
+              selectedIndex={dateIndex}
+              onChange={onDateOffsetChange}
+              textColor={wheelText}
+              showHighlight={false}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <WheelPicker
+              items={HOUR_ITEMS}
+              selectedIndex={currentEditDate.getHours()}
+              onChange={onHourChange}
+              textColor={wheelText}
+              showHighlight={false}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <WheelPicker
+              items={MINUTE_ITEMS}
+              selectedIndex={minuteToWheelIndex(currentEditDate.getMinutes())}
+              onChange={onMinuteChange}
+              textColor={wheelText}
+              showHighlight={false}
+            />
+          </View>
         </View>
       </View>
     );
