@@ -133,14 +133,19 @@ export default function SharedCalendarScreen() {
       style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>
-          공유 캘린더
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: theme.colors.text }]}>
+            공유 캘린더
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
+            달력방 {groupCalendars.length}개
+          </Text>
+        </View>
         <TouchableOpacity
           style={[styles.createButton, { backgroundColor: theme.colors.tint }]}
           onPress={() => setShowCreateModal(true)}
         >
-          <MaterialIcons name="add" size={24} color="#fff" />
+          <MaterialIcons name="add" size={18} color="#fff" />
           <Text style={styles.createButtonText}>방 만들기</Text>
         </TouchableOpacity>
       </View>
@@ -686,7 +691,10 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
             color={theme.colors.text}
           />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.colors.text, flex: 1 }]}>
+        <Text
+          style={[styles.backHeaderTitle, { color: theme.colors.text, flex: 1 }]}
+          numberOfLines={1}
+        >
           {groupName}
         </Text>
         <TouchableOpacity
@@ -997,7 +1005,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
     marginTop: Spacing.sm,
   },
   backHeader: {
@@ -1012,17 +1021,29 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     letterSpacing: -0.4,
   },
+  backHeaderTitle: {
+    fontSize: Typography.title2,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: Typography.subhead,
+    fontWeight: Typography.weights.regular,
+    marginTop: 4,
+    letterSpacing: -0.1,
+  },
   createButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: Radius.sm,
-    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    gap: 4,
+    ...Shadow.sm,
   },
   createButtonText: {
     color: "#fff",
-    fontSize: Typography.subhead,
+    fontSize: Typography.footnote,
     fontWeight: Typography.weights.semibold,
   },
   groupList: {

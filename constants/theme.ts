@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 const tintColor = "#395fa5ff";
 
 export const Colors = {
@@ -39,11 +41,17 @@ export const Radius = {
   full: 9999,
 };
 
-// iOS는 SF Pro / 안드는 Roboto / 웹은 RN-web가 'System'을 Apple 시스템 스택으로 자동 확장
-// (-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, ...).
-// 한글 글리프는 OS 폴백(iOS: Apple SD Gothic Neo / macOS Safari: 동일)으로 자연스럽게 처리됨.
+// 네이티브는 'System' (iOS = SF Pro / Apple SD Gothic Neo, Android = Roboto / Noto Sans CJK).
+// 웹은 Pretendard 우선, 폴백으로 Apple 시스템 스택.
+// Pretendard CDN은 ThemeContext의 applyWebTheme에서 1회 주입.
+// (Pretendard에서 Gowun Dodum 등으로 바꾸려면 이 한 줄만 교체)
 export const Typography = {
-  fontFamily: "System",
+  fontFamily: Platform.select({
+    ios: "System",
+    android: "System",
+    default:
+      'Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, system-ui, sans-serif',
+  }) as string,
   largeTitle: 34,
   title1: 28,
   title2: 22,

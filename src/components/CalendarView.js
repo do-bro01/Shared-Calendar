@@ -332,6 +332,11 @@ export default function CalendarView({
                     ? `${baseDateText}  ${trimTime(ev.startTime)} ~ ${trimTime(ev.endTime)}`
                     : baseDateText;
 
+                // 좌측 컬러 바 색상: 공휴일은 빨강, 그 외는 일정 dotColor 또는 브랜드 컬러
+                const accentColor = ev.isHoliday
+                  ? "#e53935"
+                  : ev.dotColor || colors.tint;
+
                 return (
                   <TouchableOpacity
                     key={ev.id}
@@ -343,7 +348,14 @@ export default function CalendarView({
                       },
                     ]}
                     onPress={() => handleEventPress(ev)}
+                    activeOpacity={0.7}
                   >
+                    <View
+                      style={[
+                        styles.eventAccentBar,
+                        { backgroundColor: accentColor },
+                      ]}
+                    />
                     <View style={styles.eventContent}>
                       <Text
                         style={[
@@ -352,11 +364,11 @@ export default function CalendarView({
                             color: ev.isHoliday ? "#e53935" : colors.text,
                             fontWeight: ev.isHoliday
                               ? Typography.weights.bold
-                              : Typography.weights.regular,
+                              : Typography.weights.semibold,
                           },
                         ]}
                       >
-                        • {ev.title}
+                        {ev.title}
                       </Text>
                       <Text
                         style={[
@@ -502,25 +514,37 @@ const styles = StyleSheet.create({
     fontSize: Typography.footnote,
   },
   eventItem: {
-    padding: 14,
+    paddingVertical: 12,
+    paddingRight: 14,
+    paddingLeft: 0,
     borderRadius: Radius.md,
     marginBottom: 10,
     marginHorizontal: 0,
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "stretch",
     borderWidth: 1,
+    overflow: "hidden",
     ...Shadow.sm,
+  },
+  eventAccentBar: {
+    width: 4,
+    alignSelf: "stretch",
+    marginRight: 12,
+    borderTopRightRadius: 2,
+    borderBottomRightRadius: 2,
   },
   eventContent: {
     flex: 1,
+    justifyContent: "center",
   },
   eventText: {
     fontSize: Typography.body,
-    marginBottom: 4,
+    marginBottom: 3,
+    letterSpacing: -0.2,
   },
   eventDate: {
     fontSize: Typography.caption,
+    letterSpacing: -0.1,
   },
   addButtonWrapper: {
     marginTop: 0,

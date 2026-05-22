@@ -4,6 +4,20 @@ import { Colors } from "../../constants/theme";
 const ThemeContext = createContext();
 
 const STORAGE_KEY = "sc-theme-mode";
+const PRETENDARD_LINK_ID = "sc-pretendard-font";
+const PRETENDARD_HREF =
+  "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css";
+
+// 웹에서 Pretendard 1회만 CDN으로 로드. <link>만 추가하므로 다른 폰트(아이콘 등)에 영향 없음.
+const ensurePretendardLoaded = () => {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(PRETENDARD_LINK_ID)) return;
+  const link = document.createElement("link");
+  link.id = PRETENDARD_LINK_ID;
+  link.rel = "stylesheet";
+  link.href = PRETENDARD_HREF;
+  document.head.appendChild(link);
+};
 
 const getInitialMode = () => {
   if (typeof window !== "undefined" && window.localStorage) {
@@ -22,6 +36,7 @@ const getInitialMode = () => {
 // 이 값을 localStorage에 저장해두면 다음 PWA 실행 시 올바른 색으로 시작됨.
 const applyWebTheme = (mode) => {
   if (typeof document === "undefined") return;
+  ensurePretendardLoaded();
   const isDark = mode === "dark";
   const bgColor = isDark ? Colors.dark.background : Colors.light.background;
   const statusBarStyle = isDark ? "black" : "default";
