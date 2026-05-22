@@ -10,11 +10,11 @@ import {
   Alert,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EventModal from "./EventModal";
 import Button from "./Button";
 import { useTheme } from "../context/ThemeContext";
-import { CalendarIcon, AddIcon, EventAvailableIcon } from "./icons";
 
 // MainTabNavigator의 tabBarStyle: bottom 12 + height 72
 const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
@@ -201,12 +201,9 @@ export default function CalendarView({
         />
       </View>
 
-      <View style={styles.titleRow}>
-        <CalendarIcon size={20} color={theme.colors.text} style={{ marginRight: 8 }} />
-        <Text style={[styles.title, styles.titleText, { color: theme.colors.text }]}>
-          {selectedDate} 일정
-        </Text>
-      </View>
+      <Text style={[styles.title, { color: theme.colors.text }]}>
+        🗓️ {selectedDate} 일정
+      </Text>
 
       <View
         style={[styles.eventList, { backgroundColor: theme.colors.background }]}
@@ -218,7 +215,8 @@ export default function CalendarView({
           return selectedDate >= startDate && selectedDate <= endDate;
         }).length === 0 ? (
           <View style={styles.emptyState}>
-            <EventAvailableIcon
+            <MaterialIcons
+              name="event-available"
               size={40}
               color={theme.colors.text}
               style={{ opacity: 0.3 }}
@@ -315,7 +313,7 @@ export default function CalendarView({
           variant="primary"
           size="lg"
           onPress={() => setModalVisible(true)}
-          icon={<AddIcon size={18} color="#fff" />}
+          icon={<MaterialIcons name="add" size={18} color="#fff" />}
           style={{ width: "50%", paddingVertical: 8 }}
         />
       </View>
@@ -387,18 +385,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     paddingLeft: 8,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 12,
-    marginBottom: 8,
-    paddingLeft: 8,
-  },
-  titleText: {
-    marginTop: 0,
-    marginBottom: 0,
-    paddingLeft: 0,
   },
   calendarWrapper: {
     borderRadius: 12,

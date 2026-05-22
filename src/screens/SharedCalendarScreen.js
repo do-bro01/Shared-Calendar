@@ -12,19 +12,8 @@ import {
   Modal,
   Platform,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-import {
-  AddIcon,
-  CheckIcon,
-  CalendarIcon,
-  ChevronRightIcon,
-  ArrowBackIcon,
-  PersonAddIcon,
-  DeleteIcon,
-  LogoutIcon,
-  PeopleIcon,
-  EventAvailableIcon,
-} from "../components/icons";
 import { GroupCalendarService } from "../services/GroupCalendarService";
 import { GroupEventService } from "../services/GroupEventService";
 import { PersonalEventService } from "../services/PersonalEventService";
@@ -150,7 +139,7 @@ export default function SharedCalendarScreen() {
           style={[styles.createButton, { backgroundColor: theme.colors.tint }]}
           onPress={() => setShowCreateModal(true)}
         >
-          <AddIcon size={24} color="#fff" />
+          <MaterialIcons name="add" size={24} color="#fff" />
           <Text style={styles.createButtonText}>방 만들기</Text>
         </TouchableOpacity>
       </View>
@@ -158,7 +147,8 @@ export default function SharedCalendarScreen() {
       <ScrollView contentContainerStyle={styles.groupList}>
         {groupCalendars.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <EventAvailableIcon
+            <MaterialIcons
+              name="event"
               size={56}
               color={theme.colors.text}
               style={{ opacity: 0.25, marginBottom: 12 }}
@@ -193,7 +183,8 @@ export default function SharedCalendarScreen() {
               onPress={() => setSelectedGroup(group.id)}
             >
               <View style={styles.groupInfo}>
-                <CalendarIcon
+                <MaterialIcons
+                  name="calendar-today"
                   size={28}
                   color={theme.colors.tint}
                   style={{ marginRight: 12 }}
@@ -214,7 +205,8 @@ export default function SharedCalendarScreen() {
                   </Text>
                 </View>
               </View>
-              <ChevronRightIcon
+              <MaterialIcons
+                name="keyboard-arrow-right"
                 size={24}
                 color={theme.colors.text}
               />
@@ -342,7 +334,7 @@ export default function SharedCalendarScreen() {
                       }}
                     >
                       {selectedFriends.includes(friend.userId) && (
-                        <CheckIcon size={16} color="#fff" />
+                        <MaterialIcons name="check" size={16} color="#fff" />
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
@@ -689,7 +681,11 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
     >
       <View style={styles.backHeader}>
         <TouchableOpacity onPress={onBack} style={{ padding: 8 }}>
-          <ArrowBackIcon size={24} color={theme.colors.text} />
+          <MaterialIcons
+            name="arrow-back"
+            size={24}
+            color={theme.colors.text}
+          />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.colors.text, flex: 1 }]}>
           {groupName}
@@ -698,7 +694,11 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
           onPress={() => setInviteModalVisible(true)}
           style={{ padding: 8 }}
         >
-          <PersonAddIcon size={24} color={theme.colors.tint} />
+          <MaterialIcons
+            name="person-add"
+            size={24}
+            color={theme.colors.tint}
+          />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={
@@ -706,11 +706,11 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
           }
           style={{ padding: 8 }}
         >
-          {groupMembers.length <= 1 ? (
-            <DeleteIcon size={24} color="#395fa5ff" />
-          ) : (
-            <LogoutIcon size={24} color="#395fa5ff" />
-          )}
+          <MaterialIcons
+            name={groupMembers.length <= 1 ? "delete" : "exit-to-app"}
+            size={24}
+            color="#395fa5ff"
+          />
         </TouchableOpacity>
       </View>
 
@@ -726,7 +726,8 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
           onPress={() => setMembersModalVisible(true)}
           style={{ flexDirection: "row", alignItems: "center" }}
         >
-          <PeopleIcon
+          <MaterialIcons
+            name="group"
             size={18}
             color={theme.colors.text}
             style={{ marginRight: 6, opacity: 0.7 }}
@@ -932,7 +933,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
                         }}
                       >
                         {inviteSelections.includes(friend.userId) && (
-                          <CheckIcon size={16} color="#fff" />
+                          <MaterialIcons name="check" size={16} color="#fff" />
                         )}
                       </View>
                       <View style={{ flex: 1 }}>

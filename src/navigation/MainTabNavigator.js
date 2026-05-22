@@ -1,8 +1,8 @@
 // src/navigation/MainTabNavigator.js
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-import { CalendarIcon, PeopleIcon, SettingsIcon } from "../components/icons";
 
 import PersonalCalendarScreen from "../screens/PersonalCalendarScreen";
 import SharedCalendarScreen from "../screens/SharedCalendarScreen";
@@ -46,14 +46,14 @@ export default function MainTabNavigator() {
           shadowRadius: 16,
           elevation: 4,
         },
-        tabBarIcon: ({ color }) => {
-          if (route.name === "PersonalCalendar")
-            return <CalendarIcon size={24} color={color} />;
-          if (route.name === "SharedCalendar")
-            return <PeopleIcon size={24} color={color} />;
-          if (route.name === "Settings")
-            return <SettingsIcon size={24} color={color} />;
-          return null;
+        tabBarIcon: ({ color, size }) => {
+          let iconName;
+
+          if (route.name === "PersonalCalendar") iconName = "calendar-today";
+          else if (route.name === "SharedCalendar") iconName = "groups";
+          else if (route.name === "Settings") iconName = "settings";
+
+          return <MaterialIcons name={iconName} size={24} color={color} />;
         },
       })}
     >

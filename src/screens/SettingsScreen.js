@@ -13,25 +13,8 @@ import {
   Modal,
   Platform,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-import {
-  ChevronRightIcon,
-  CopyIcon,
-  AccountCircleIcon,
-  CheckIcon,
-  EditIcon,
-  RefreshIcon,
-  PersonAddIcon,
-  PeopleIcon,
-  PersonIcon,
-  DeleteIcon,
-  KeyIcon,
-  DarkModeIcon,
-  InfoIcon,
-  DescriptionIcon,
-  HelpIcon,
-  LogoutIcon,
-} from "../components/icons";
 import { supabase } from "../lib/supabaseClient";
 import { UserService } from "../services/UserService";
 import { FriendService } from "../services/FriendService";
@@ -249,14 +232,14 @@ export default function SettingsScreen() {
       },
     ];
 
-    const IconComp = icon;
     const left = (
       <View style={styles.itemContent}>
-        {IconComp ? (
-          <View style={styles.icon}>
-            <IconComp size={24} color={theme.colors.tint} />
-          </View>
-        ) : null}
+        <MaterialIcons
+          name={icon}
+          size={24}
+          color={theme.colors.tint}
+          style={styles.icon}
+        />
         <Text style={[styles.itemTitle, { color: theme.colors.text }]}>
           {title}
         </Text>
@@ -296,7 +279,7 @@ export default function SettingsScreen() {
     return (
       <TouchableOpacity style={rowStyle} onPress={onPress}>
         {left}
-        <ChevronRightIcon size={24} color="#aaa" />
+        <MaterialIcons name="keyboard-arrow-right" size={24} color="#aaa" />
       </TouchableOpacity>
     );
   };
@@ -342,9 +325,12 @@ export default function SettingsScreen() {
               ]}
             >
               <View style={styles.itemContent}>
-                <View style={styles.icon}>
-                  <KeyIcon size={24} color={theme.colors.tint} />
-                </View>
+                <MaterialIcons
+                  name="vpn-key"
+                  size={24}
+                  color={theme.colors.tint}
+                  style={styles.icon}
+                />
                 <View>
                   <Text
                     style={[styles.itemTitle, { color: theme.colors.text }]}
@@ -364,7 +350,7 @@ export default function SettingsScreen() {
                 </View>
               </View>
               <TouchableOpacity onPress={handleCopyScId}>
-                <CopyIcon size={20} color="#aaa" />
+                <MaterialIcons name="content-copy" size={20} color="#aaa" />
               </TouchableOpacity>
             </View>
 
@@ -389,9 +375,12 @@ export default function SettingsScreen() {
                 }}
               >
                 <View style={styles.itemContent}>
-                  <View style={styles.icon}>
-                    <AccountCircleIcon size={24} color={theme.colors.tint} />
-                  </View>
+                  <MaterialIcons
+                    name="account-circle"
+                    size={24}
+                    color={theme.colors.tint}
+                    style={styles.icon}
+                  />
                   <Text
                     style={[styles.itemTitle, { color: theme.colors.text }]}
                   >
@@ -401,11 +390,11 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                   onPress={() => setIsEditingName(!isEditingName)}
                 >
-                  {isEditingName ? (
-                    <CheckIcon size={20} color={theme.colors.tint} />
-                  ) : (
-                    <EditIcon size={20} color={theme.colors.tint} />
-                  )}
+                  <MaterialIcons
+                    name={isEditingName ? "check" : "edit"}
+                    size={20}
+                    color={theme.colors.tint}
+                  />
                 </TouchableOpacity>
               </View>
 
@@ -472,7 +461,7 @@ export default function SettingsScreen() {
             </View>
 
             <SettingsItem
-              icon={LogoutIcon}
+              icon="logout"
               title="로그아웃"
               onPress={handleLogout}
             />
@@ -504,7 +493,7 @@ export default function SettingsScreen() {
               refreshBus.emit();
             }}
           >
-            <RefreshIcon size={20} color="#fff" />
+            <MaterialIcons name="refresh" size={20} color="#fff" />
             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
               새로고침
             </Text>
@@ -538,7 +527,7 @@ export default function SettingsScreen() {
                 borderRadius: 6,
               }}
             >
-              <PersonAddIcon size={18} color="#fff" />
+              <MaterialIcons name="person-add" size={18} color="#fff" />
               <Text
                 style={{
                   color: "#fff",
@@ -567,7 +556,8 @@ export default function SettingsScreen() {
                   gap: 6,
                 }}
               >
-                <PeopleIcon
+                <MaterialIcons
+                  name="people-outline"
                   size={36}
                   color={theme.colors.text}
                   style={{ opacity: 0.3 }}
@@ -610,9 +600,12 @@ export default function SettingsScreen() {
                   ]}
                 >
                   <View style={styles.itemContent}>
-                    <View style={styles.icon}>
-                      <PersonIcon size={20} color={theme.colors.tint} />
-                    </View>
+                    <MaterialIcons
+                      name="person"
+                      size={20}
+                      color={theme.colors.tint}
+                      style={styles.icon}
+                    />
                     <View>
                       <Text
                         style={[styles.itemTitle, { color: theme.colors.text }]}
@@ -633,7 +626,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     onPress={() => handleRemoveFriend(friend.userId)}
                   >
-                    <DeleteIcon size={20} color="#395fa5ff" />
+                    <MaterialIcons name="delete" size={20} color="#395fa5ff" />
                   </TouchableOpacity>
                 </View>
               ))
@@ -651,7 +644,7 @@ export default function SettingsScreen() {
             ]}
           >
             <SettingsItem
-              icon={DarkModeIcon}
+              icon="dark-mode"
               title="다크 모드"
               isToggle={true}
               value={theme.mode === "dark"}
@@ -670,17 +663,17 @@ export default function SettingsScreen() {
             ]}
           >
             <SettingsItem
-              icon={InfoIcon}
+              icon="info-outline"
               title="앱 정보"
               onPress={() => console.log("앱 정보 페이지")}
             />
             <SettingsItem
-              icon={DescriptionIcon}
+              icon="description"
               title="개인정보 보호 정책"
               onPress={() => console.log("개인정보 정책 보기")}
             />
             <SettingsItem
-              icon={HelpIcon}
+              icon="help-outline"
               title="고객 지원"
               onPress={() => console.log("고객 지원 페이지")}
             />
