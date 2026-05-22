@@ -55,24 +55,18 @@ export default function WheelPicker({
     };
   }, []);
 
-  // 웹에선 CSS scroll-snap을 직접 깐다.
-  // react-native-web의 snapToInterval은 mandatory를 켜지만 자식의 snap-align을
-  // 안 깔아서, 애매한 위치에서 브라우저가 (0,0)으로 스냅해 "맨 위로" 튀는 문제를 일으킴.
-  // 우리가 직접 컨테이너와 자식 모두에 scroll-snap을 적용해 정확한 스냅 포인트를 정의한다.
+  // 웹에선 스크롤러 자체의 scroll-snap-type을 DOM에 직접 깐다.
+  // mandatory는 iOS Safari momentum 감속 중에도 강제 스냅을 끼워 넣어 끊겨 보임 →
+  // proximity는 momentum이 자연스럽게 감속한 뒤 가까운 항목에만 부드럽게 안착.
+  // 각 자식의 scroll-snap-align / will-change / backface-visibility는 React style prop으로
+  // 넘긴다(Animated가 매 프레임 transform을 덮어쓰므로 DOM에 직접 적으면 사라짐).
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const node = scrollRef.current?.getScrollableNode?.() ?? scrollRef.current;
     if (!node || !node.style) return;
-    node.style.scrollSnapType = "y mandatory";
+    node.style.scrollSnapType = "y proximity";
     node.style.WebkitOverflowScrolling = "touch";
-    // 자식(각 항목 wrapper)에 center 스냅 부여
-    const children = node.children?.[0]?.children ?? [];
-    for (const child of children) {
-      if (child && child.style) {
-        child.style.scrollSnapAlign = "center";
-      }
-    }
-  }, [items.length]);
+  }, []);
 
   const clamp = (i) => Math.max(0, Math.min(items.length - 1, i));
 
@@ -215,6 +209,14 @@ export default function WheelPicker({
                   { translateY },
                   { scale },
                 ],
+                // 웹: 각 항목 중심이 컨테이너 중심에 스냅 + GPU 컴포지터로 올려 페인트 가속.
+                ...(Platform.OS === "web"
+                  ? {
+                      scrollSnapAlign: "center",
+                      willChange: "transform",
+                      backfaceVisibility: "hidden",
+                    }
+                  : null),
               }}
             >
               <Text
