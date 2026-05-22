@@ -136,7 +136,7 @@ export default function CalendarView({
     // 빈 lane은 투명 placeholder로 채워 lane 정렬 유지
     for (const date in marked) {
       marked[date].periods = marked[date].periods.map(
-        (p) => p || { color: "transparent" }
+        (p) => p || { color: "transparent" },
       );
     }
 
@@ -160,145 +160,160 @@ export default function CalendarView({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-      <Text
-        style={[
-          isShared ? styles.headerTitleShared : styles.headerTitle,
-          { color: theme.mode === "dark" ? "#ffffff" : "#000000" },
-        ]}
-      >
-        {title}
-      </Text>
-      <View
-        style={[
-          styles.calendarWrapper,
-          { backgroundColor: theme.colors.background },
-        ]}
-      >
-        <Calendar
-          key={theme.mode}
-          onDayPress={(day) => onSelectDate(day.dateString)}
-          markingType={"multi-period"}
-          markedDates={getMarkedDates()}
-          enableSwipeMonths={true}
-          theme={{
-            calendarBackground:
-              theme.mode === "dark" ? theme.colors.background : "#ffffff",
-            monthTextColor: theme.mode === "dark" ? "#ffffff" : "#000000",
-            textSectionTitleColor:
-              theme.mode === "dark" ? "#ffffff" : "#000000",
-            textDayColor: theme.colors.text,
-            selectedDayBackgroundColor: colors.tint,
-            selectedDayTextColor: "#fff",
-            todayTextColor: colors.tint,
-            todayBackgroundColor: "transparent",
-            arrowColor: colors.tint,
-            textMonthFontSize: 18,
-            textMonthFontWeight: "700",
-            textDayFontWeight: "500",
-            textDayHeaderFontWeight: "600",
-            textDayHeaderFontSize: 12,
-          }}
-        />
-      </View>
+        <Text
+          style={[
+            isShared ? styles.headerTitleShared : styles.headerTitle,
+            { color: theme.mode === "dark" ? "#ffffff" : "#000000" },
+          ]}
+        >
+          {title}
+        </Text>
+        <View
+          style={[
+            styles.calendarWrapper,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <Calendar
+            key={theme.mode}
+            onDayPress={(day) => onSelectDate(day.dateString)}
+            markingType={"multi-period"}
+            markedDates={getMarkedDates()}
+            enableSwipeMonths={true}
+            theme={{
+              calendarBackground:
+                theme.mode === "dark" ? theme.colors.background : "#ffffff",
+              monthTextColor: theme.mode === "dark" ? "#ffffff" : "#000000",
+              textSectionTitleColor:
+                theme.mode === "dark" ? "#ffffff" : "#000000",
+              textDayColor: theme.colors.text,
+              selectedDayBackgroundColor: colors.tint,
+              selectedDayTextColor: "#fff",
+              todayTextColor: colors.tint,
+              todayBackgroundColor: "transparent",
+              arrowColor: colors.tint,
+              textMonthFontSize: 18,
+              textMonthFontWeight: "700",
+              textDayFontWeight: "500",
+              textDayHeaderFontWeight: "600",
+              textDayHeaderFontSize: 12,
+            }}
+          />
+        </View>
 
-      <Text style={[styles.title, { color: theme.colors.text }]}>
-        🗓️ {selectedDate} 일정
-      </Text>
+        <View style={styles.titleRow}>
+          <MaterialIcons
+            name="calendar-today"
+            size={20}
+            color={colors.tint}
+            style={{ marginRight: 4, marginTop: -2 }}
+          />
+          <Text style={[styles.titleText, { color: theme.colors.text }]}>
+            {selectedDate} 일정
+          </Text>
+        </View>
 
-      <View
-        style={[styles.eventList, { backgroundColor: theme.colors.background }]}
-      >
-        {events.filter((ev) => {
-          // 선택된 날짜가 일정의 시작일과 종료일 사이에 있는지 확인 (문자열 비교)
-          const startDate = ev.date;
-          const endDate = ev.endDate || ev.date;
-          return selectedDate >= startDate && selectedDate <= endDate;
-        }).length === 0 ? (
-          <View style={styles.emptyState}>
-            <MaterialIcons
-              name="event-available"
-              size={40}
-              color={theme.colors.text}
-              style={{ opacity: 0.3 }}
-            />
-            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-              일정 없음
-            </Text>
-            <Text style={[styles.emptyHint, { color: theme.colors.text }]}>
-              아래 버튼으로 새 일정을 추가해보세요
-            </Text>
-          </View>
-        ) : (
-          events
-            .filter((ev) => {
-              const startDate = ev.date;
-              const endDate = ev.endDate || ev.date;
-              return selectedDate >= startDate && selectedDate <= endDate;
-            })
-            .map((ev) => {
-              // 날짜 포맷팅
-              const formatDate = (dateStr) => {
-                const date = new Date(dateStr);
-                const month = date.getMonth() + 1;
-                const day = date.getDate();
-                return `${month}월${day}일`;
-              };
+        <View
+          style={[
+            styles.eventList,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          {events.filter((ev) => {
+            // 선택된 날짜가 일정의 시작일과 종료일 사이에 있는지 확인 (문자열 비교)
+            const startDate = ev.date;
+            const endDate = ev.endDate || ev.date;
+            return selectedDate >= startDate && selectedDate <= endDate;
+          }).length === 0 ? (
+            <View style={styles.emptyState}>
+              <MaterialIcons
+                name="event-available"
+                size={40}
+                color={theme.colors.text}
+                style={{ opacity: 0.3 }}
+              />
+              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                일정 없음
+              </Text>
+              <Text style={[styles.emptyHint, { color: theme.colors.text }]}>
+                아래 버튼으로 새 일정을 추가해보세요
+              </Text>
+            </View>
+          ) : (
+            events
+              .filter((ev) => {
+                const startDate = ev.date;
+                const endDate = ev.endDate || ev.date;
+                return selectedDate >= startDate && selectedDate <= endDate;
+              })
+              .map((ev) => {
+                // 날짜 포맷팅
+                const formatDate = (dateStr) => {
+                  const date = new Date(dateStr);
+                  const month = date.getMonth() + 1;
+                  const day = date.getDate();
+                  return `${month}월${day}일`;
+                };
 
-              // HH:MM:SS → HH:MM 로 자르기
-              const trimTime = (t) =>
-                typeof t === "string" ? t.slice(0, 5) : t;
+                // HH:MM:SS → HH:MM 로 자르기
+                const trimTime = (t) =>
+                  typeof t === "string" ? t.slice(0, 5) : t;
 
-              const baseDateText =
-                ev.endDate && ev.endDate !== ev.date
-                  ? `${formatDate(ev.date)}~${formatDate(ev.endDate)}`
-                  : formatDate(ev.date);
+                const baseDateText =
+                  ev.endDate && ev.endDate !== ev.date
+                    ? `${formatDate(ev.date)}~${formatDate(ev.endDate)}`
+                    : formatDate(ev.date);
 
-              // 하루종일이 아닌 일정은 시간 표시 추가
-              const dateText =
-                !ev.isHoliday && ev.allDay === false && ev.startTime && ev.endTime
-                  ? `${baseDateText}  ${trimTime(ev.startTime)} ~ ${trimTime(ev.endTime)}`
-                  : baseDateText;
+                // 하루종일이 아닌 일정은 시간 표시 추가
+                const dateText =
+                  !ev.isHoliday &&
+                  ev.allDay === false &&
+                  ev.startTime &&
+                  ev.endTime
+                    ? `${baseDateText}  ${trimTime(ev.startTime)} ~ ${trimTime(ev.endTime)}`
+                    : baseDateText;
 
-              return (
-                <TouchableOpacity
-                  key={ev.id}
-                  style={[
-                    styles.eventItem,
-                    {
-                      backgroundColor: theme.mode === "dark" ? "#222431ff" : "#EEE",
-                    },
-                  ]}
-                  onPress={() => handleEventPress(ev)}
-                >
-                  <View style={styles.eventContent}>
-                    <Text
-                      style={[
-                        styles.eventText,
-                        {
-                          color: ev.isHoliday ? "#e53935" : theme.colors.text,
-                          fontWeight: ev.isHoliday ? "700" : "400",
-                        },
-                      ]}
-                    >
-                      • {ev.title}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.eventDate,
-                        {
-                          color: theme.colors.text,
-                          opacity: ev.isHoliday ? 0.9 : 0.7,
-                        },
-                      ]}
-                    >
-                      {dateText}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-        )}
-      </View>
+                return (
+                  <TouchableOpacity
+                    key={ev.id}
+                    style={[
+                      styles.eventItem,
+                      {
+                        backgroundColor:
+                          theme.mode === "dark" ? "#222431ff" : "#EEE",
+                      },
+                    ]}
+                    onPress={() => handleEventPress(ev)}
+                  >
+                    <View style={styles.eventContent}>
+                      <Text
+                        style={[
+                          styles.eventText,
+                          {
+                            color: ev.isHoliday ? "#e53935" : theme.colors.text,
+                            fontWeight: ev.isHoliday ? "700" : "400",
+                          },
+                        ]}
+                      >
+                        • {ev.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.eventDate,
+                          {
+                            color: theme.colors.text,
+                            opacity: ev.isHoliday ? 0.9 : 0.7,
+                          },
+                        ]}
+                      >
+                        {dateText}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+          )}
+        </View>
       </ScrollView>
 
       {/* 일정 추가 버튼 (스크롤 영역 바깥, 하단 고정) */}
@@ -385,6 +400,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     paddingLeft: 8,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  titleText: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
   calendarWrapper: {
     borderRadius: 12,
