@@ -73,9 +73,10 @@ export default function CalendarView({
   //   3) 단발 보정 타이밍이 그보다 빨라 무력화됨 → 2024.6 / 2028.5 같은 양끝으로 튐.
   // 여러 시점에 반복 보정해 레이아웃/스크롤 복원이 끝난 뒤에도 반드시 그 달에 안착시킨다.
   const scheduleScroll = React.useCallback(() => {
+    // 이전에 예약된 보정들을 모두 취소(자연스러운 디바운스) → 연속 호출 시 마지막 것만 실행
     scrollTimersRef.current.forEach(clearTimeout);
     const target = selectedDateRef.current;
-    const delays = Platform.OS === "web" ? [60, 200, 400, 700, 1000] : [80];
+    const delays = Platform.OS === "web" ? [120, 450] : [80];
     scrollTimersRef.current = delays.map((d) =>
       setTimeout(() => {
         calendarListRef.current?.scrollToDay(target, 0, false);
@@ -269,7 +270,6 @@ export default function CalendarView({
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      onLayout={() => setCalendarWidth(getCalendarWidth())}
     >
       <ScrollView
         style={{ flex: 1 }}
@@ -286,6 +286,14 @@ export default function CalendarView({
               borderColor: colors.border,
             },
           ]}
+          onLayout={(e) => {
+            // Dimensions 추정 대신 실제 렌더된 컨테이너 폭을 측정해서 페이지 폭으로 사용.
+            // CalendarList의 scrollToDay는 offset = 달_index × calendarWidth로 계산하는데,
+            // iOS PWA에선 Dimensions.window.width가 실제 폭과 어긋나 offset이 범위를 벗어나
+            // 양끝(과거/미래 끝)으로 clamp되던 문제를 차단한다. (좌우 보더 1px씩 제외)
+            const w = Math.floor(e.nativeEvent.layout.width) - 2;
+            if (w > 0 && w !== calendarWidth) setCalendarWidth(w);
+          }}
         >
           <CalendarList
             ref={calendarListRef}
