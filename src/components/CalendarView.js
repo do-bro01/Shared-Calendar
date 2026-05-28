@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   Alert,
   Dimensions,
+  Platform,
 } from "react-native";
 import { CalendarList } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -56,19 +57,55 @@ export default function CalendarView({
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
 
+  // 최신 selectedDate를 ref로 유지 (이벤트 핸들러가 stale 값을 쓰지 않도록)
+  const selectedDateRef = useRef(selectedDate);
+  selectedDateRef.current = selectedDate;
+  const scrollTimersRef = useRef([]);
+
   // react-native-calendars의 CalendarList는 horizontal + pagingEnabled 조합에서
   // initialScrollIndex가 종종 무시되어 첫 페이지(과거 끝)부터 시작하는 이슈가 있음.
   // 또한 내부 getItemLayout이 빈 deps의 useCallback이라 calendarWidth 변경 시
   // stale한 calendarSize를 반환. → 마운트(또는 width 안정화) 직후 ref로 명시 스크롤.
+  //
+  // 웹(특히 iOS PWA)에서는 한 번만 보정하면 빗나감:
+  //   1) 재실행/복귀 직후 iOS가 "종료 전 스크롤 위치"를 복원하려 하는데
+  //   2) FlatList 가상화로 콘텐츠가 아직 다 안 그려져 복원값이 렌더된 범위 양끝으로 clamp되고
+  //   3) 단발 보정 타이밍이 그보다 빨라 무력화됨 → 2024.6 / 2028.5 같은 양끝으로 튐.
+  // 여러 시점에 반복 보정해 레이아웃/스크롤 복원이 끝난 뒤에도 반드시 그 달에 안착시킨다.
+  const scheduleScroll = React.useCallback(() => {
+    scrollTimersRef.current.forEach(clearTimeout);
+    const target = selectedDateRef.current;
+    const delays = Platform.OS === "web" ? [60, 200, 400, 700, 1000] : [80];
+    scrollTimersRef.current = delays.map((d) =>
+      setTimeout(() => {
+        calendarListRef.current?.scrollToDay(target, 0, false);
+      }, d),
+    );
+  }, []);
+
+  // 마운트 / width 안정화 / 테마 변경 시 보정.
+  // selectedDate는 의도적으로 deps에서 제외: 사용자가 다른 월의 날짜를 선택해도
+  // 화면을 그쪽으로 강제 스크롤하지 않음. width 안정화/리마운트 시점에만 보정.
   useEffect(() => {
-    const id = setTimeout(() => {
-      calendarListRef.current?.scrollToDay(selectedDate, 0, false);
-    }, 80);
-    return () => clearTimeout(id);
-    // selectedDate는 의도적으로 deps에서 제외: 사용자가 다른 월의 날짜를 선택해도
-    // 화면을 그쪽으로 강제 스크롤하지 않음. width 안정화/리마운트 시점에만 보정.
+    scheduleScroll();
+    return () => scrollTimersRef.current.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarWidth, theme.mode]);
+
+  // iOS PWA는 백그라운드 복귀 시 React를 remount하지 않으므로 위 effect가 안 돌아감.
+  // 또 재실행 시 스크롤 복원 타이밍이 늦어 양끝으로 튐. 앱이 다시 보일 때마다 재보정.
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") scheduleScroll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+    };
+  }, [scheduleScroll]);
 
   const addButtonMarginBottom = Math.max(
     8,
