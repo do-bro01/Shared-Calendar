@@ -13,6 +13,7 @@ Expo + React Native로 만든 개인/공유 캘린더 앱입니다. 웹 빌드�
 ## 시작하기
 
 1. 의존성 설치
+
    ```bash
    npm install
    ```
@@ -20,6 +21,7 @@ Expo + React Native로 만든 개인/공유 캘린더 앱입니다. 웹 빌드�
 2. Supabase 환경 변수 설정
 
    프로젝트 루트에 `.env` 파일을 만들고 Supabase URL과 anon key를 추가합니다.
+
    ```bash
    EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
@@ -56,6 +58,7 @@ npx expo export --platform web
 - [index.js](index.js): 런타임에 `apple-mobile-web-app-*` 등 메타태그 주입 + service worker 등록
 
 아이콘을 새로 만들고 싶다면 [assets/icon.svg](assets/icon.svg)를 수정 후 다음으로 재생성:
+
 ```bash
 rsvg-convert -w 192 -h 192 assets/icon.svg -o public/icon-192.png && \
 rsvg-convert -w 512 -h 512 assets/icon.svg -o public/icon-512.png && \
@@ -92,3 +95,5 @@ docs/               # 기획/회고 문서
 - **react-native-calendars** (캘린더 UI)
 - **AsyncStorage** (로컬 세션 저장)
 - **Vercel** (웹 정적 호스팅)
+
+--슬라이드 오류 수정
