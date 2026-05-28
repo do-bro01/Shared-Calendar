@@ -29,6 +29,12 @@ const HORIZONTAL_PADDING = Spacing.lg;
 const getCalendarWidth = () =>
   Math.floor(Dimensions.get("window").width - HORIZONTAL_PADDING * 2);
 
+// CalendarList의 pastScrollRange/futureScrollRange. JSX prop과 반드시 동일하게 유지.
+// 오늘(=current=initialDate)의 페이지 인덱스 = PAST_SCROLL_RANGE 이므로
+// 오늘 달의 스크롤 오프셋 = calendarWidth * PAST_SCROLL_RANGE.
+const PAST_SCROLL_RANGE = 24;
+const FUTURE_SCROLL_RANGE = 24;
+
 // iOS 홈화면 PWA(standalone)에서는 시스템이 이전 세션의 스크롤 위치를 복원하려 하고,
 // 그게 우리의 scrollToDay 보정과 충돌해 캘린더가 양끝까지 "슬라이드"되는 회귀가 생김.
 // 이 환경에서는 보정을 건너뛰고 CalendarList의 current + initialScrollIndex 기본 동작에 맡긴다
@@ -64,6 +70,7 @@ export default function CalendarView({
   const [editingEvent, setEditingEvent] = useState(null);
   const [calendarWidth, setCalendarWidth] = useState(getCalendarWidth());
   const calendarListRef = useRef(null);
+  const calendarWrapperRef = useRef(null); // 웹: 내부 가로 스크롤러 DOM 접근용
   const theme = useTheme();
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
@@ -75,13 +82,38 @@ export default function CalendarView({
 
   // react-native-calendars의 CalendarList는 horizontal + pagingEnabled 조합에서
   // initialScrollIndex가 종종 무시되어 첫 페이지(과거 끝)부터 시작하는 이슈가 있음.
-  // → 데스크톱 브라우저/네이티브에서는 마운트(또는 width 안정화) 직후 ref로 명시 스크롤해 보정.
+  // → 데스크톱 브라우저/네이티브에서는 마운트(또는 width 안정화) 직후 ref.scrollToDay로 보정.
   //
-  // 단, iOS 홈화면 PWA(standalone)에서는 이 보정이 시스템 스크롤 복원과 충돌해
-  // 캘린더가 양끝까지 슬라이드되는 회귀를 만들므로 보정을 건너뛴다([[IS_STANDALONE_PWA]]).
+  // iOS 홈화면 PWA(standalone)에서는 scrollToDay(=scrollToOffset)가 과거 끝에서 오늘까지
+  // "슬라이드" 애니메이션으로 미끄러지고, 시스템 스크롤 복원과도 충돌함. 그래서 PWA에서는
+  // 내부 가로 스크롤러의 scrollLeft를 "직접" 즉시 할당한다(DOM scrollLeft setter는 항상 즉발 →
+  // 슬라이드 없음). 복원이 늦게 들어와도 여러 시점에 다시 고정하면 마지막엔 오늘 달에 안착.
   const scheduleScroll = React.useCallback(() => {
     scrollTimersRef.current.forEach(clearTimeout);
-    if (IS_STANDALONE_PWA) return; // 기본 current + initialScrollIndex에 위임
+
+    if (IS_STANDALONE_PWA) {
+      const todayOffset = calendarWidth * PAST_SCROLL_RANGE;
+      const pinToToday = () => {
+        const root = calendarWrapperRef.current;
+        if (!root || typeof root.querySelectorAll !== "function") return;
+        // 가로로 넘치는(=49개월 너비) 스크롤 컨테이너 찾기
+        for (const el of root.querySelectorAll("div")) {
+          if (el.scrollWidth > el.clientWidth + 8) {
+            const ox = window.getComputedStyle(el).overflowX;
+            if (ox === "auto" || ox === "scroll") {
+              el.scrollLeft = todayOffset; // 즉발 점프 (애니메이션 없음)
+              break;
+            }
+          }
+        }
+      };
+      scrollTimersRef.current = [80, 250, 500, 900].map((d) =>
+        setTimeout(pinToToday, d),
+      );
+      return;
+    }
+
+    // 데스크톱 브라우저 / 네이티브: 기존 scrollToDay 보정
     const target = selectedDateRef.current;
     const delays = Platform.OS === "web" ? [120, 450] : [80];
     scrollTimersRef.current = delays.map((d) =>
@@ -89,7 +121,7 @@ export default function CalendarView({
         calendarListRef.current?.scrollToDay(target, 0, false);
       }, d),
     );
-  }, []);
+  }, [calendarWidth]);
 
   // 마운트 / width 안정화 / 테마 변경 시 보정.
   // selectedDate는 의도적으로 deps에서 제외: 사용자가 다른 월의 날짜를 선택해도
@@ -99,6 +131,21 @@ export default function CalendarView({
     return () => scrollTimersRef.current.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarWidth, theme.mode]);
+
+  // iOS PWA는 "열기"가 콜드 런치가 아니라 백그라운드 복귀인 경우가 많아 위 effect가 안 돌아감.
+  // 다시 보일 때마다 오늘 달로 재고정(즉발 scrollLeft라 슬라이드 없음). PWA 한정.
+  useEffect(() => {
+    if (!IS_STANDALONE_PWA || typeof document === "undefined") return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") scheduleScroll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+    };
+  }, [scheduleScroll]);
 
   const addButtonMarginBottom = Math.max(
     8,
@@ -272,6 +319,7 @@ export default function CalendarView({
         {renderHeader()}
 
         <View
+          ref={calendarWrapperRef}
           style={[
             styles.calendarWrapper,
             {
@@ -285,8 +333,8 @@ export default function CalendarView({
             key={`${theme.mode}-${calendarWidth}`}
             horizontal
             pagingEnabled
-            pastScrollRange={24}
-            futureScrollRange={24}
+            pastScrollRange={PAST_SCROLL_RANGE}
+            futureScrollRange={FUTURE_SCROLL_RANGE}
             calendarWidth={calendarWidth}
             showScrollIndicator={false}
             current={selectedDate}
