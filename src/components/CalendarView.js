@@ -29,6 +29,17 @@ const HORIZONTAL_PADDING = Spacing.lg;
 const getCalendarWidth = () =>
   Math.floor(Dimensions.get("window").width - HORIZONTAL_PADDING * 2);
 
+// iOS 홈화면 PWA(standalone)에서는 시스템이 이전 세션의 스크롤 위치를 복원하려 하고,
+// 그게 우리의 scrollToDay 보정과 충돌해 캘린더가 양끝까지 "슬라이드"되는 회귀가 생김.
+// 이 환경에서는 보정을 건너뛰고 CalendarList의 current + initialScrollIndex 기본 동작에 맡긴다
+// (회귀 전, 데스크톱과 동일하게 오늘 달에 잘 안착하던 동작). 데스크톱 브라우저/네이티브는 보정 유지.
+const IS_STANDALONE_PWA =
+  Platform.OS === "web" &&
+  typeof window !== "undefined" &&
+  ((window.navigator && window.navigator.standalone === true) ||
+    (typeof window.matchMedia === "function" &&
+      window.matchMedia("(display-mode: standalone)").matches));
+
 const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const formatGreetingDate = (date) => {
   const m = date.getMonth() + 1;
@@ -64,17 +75,13 @@ export default function CalendarView({
 
   // react-native-calendars의 CalendarList는 horizontal + pagingEnabled 조합에서
   // initialScrollIndex가 종종 무시되어 첫 페이지(과거 끝)부터 시작하는 이슈가 있음.
-  // 또한 내부 getItemLayout이 빈 deps의 useCallback이라 calendarWidth 변경 시
-  // stale한 calendarSize를 반환. → 마운트(또는 width 안정화) 직후 ref로 명시 스크롤.
+  // → 데스크톱 브라우저/네이티브에서는 마운트(또는 width 안정화) 직후 ref로 명시 스크롤해 보정.
   //
-  // 웹(특히 iOS PWA)에서는 한 번만 보정하면 빗나감:
-  //   1) 재실행/복귀 직후 iOS가 "종료 전 스크롤 위치"를 복원하려 하는데
-  //   2) FlatList 가상화로 콘텐츠가 아직 다 안 그려져 복원값이 렌더된 범위 양끝으로 clamp되고
-  //   3) 단발 보정 타이밍이 그보다 빨라 무력화됨 → 2024.6 / 2028.5 같은 양끝으로 튐.
-  // 여러 시점에 반복 보정해 레이아웃/스크롤 복원이 끝난 뒤에도 반드시 그 달에 안착시킨다.
+  // 단, iOS 홈화면 PWA(standalone)에서는 이 보정이 시스템 스크롤 복원과 충돌해
+  // 캘린더가 양끝까지 슬라이드되는 회귀를 만들므로 보정을 건너뛴다([[IS_STANDALONE_PWA]]).
   const scheduleScroll = React.useCallback(() => {
-    // 이전에 예약된 보정들을 모두 취소(자연스러운 디바운스) → 연속 호출 시 마지막 것만 실행
     scrollTimersRef.current.forEach(clearTimeout);
+    if (IS_STANDALONE_PWA) return; // 기본 current + initialScrollIndex에 위임
     const target = selectedDateRef.current;
     const delays = Platform.OS === "web" ? [120, 450] : [80];
     scrollTimersRef.current = delays.map((d) =>
@@ -92,21 +99,6 @@ export default function CalendarView({
     return () => scrollTimersRef.current.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarWidth, theme.mode]);
-
-  // iOS PWA는 백그라운드 복귀 시 React를 remount하지 않으므로 위 effect가 안 돌아감.
-  // 또 재실행 시 스크롤 복원 타이밍이 늦어 양끝으로 튐. 앱이 다시 보일 때마다 재보정.
-  useEffect(() => {
-    if (Platform.OS !== "web" || typeof document === "undefined") return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") scheduleScroll();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("pageshow", onVisible);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("pageshow", onVisible);
-    };
-  }, [scheduleScroll]);
 
   const addButtonMarginBottom = Math.max(
     8,
@@ -270,6 +262,7 @@ export default function CalendarView({
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={() => setCalendarWidth(getCalendarWidth())}
     >
       <ScrollView
         style={{ flex: 1 }}
@@ -286,14 +279,6 @@ export default function CalendarView({
               borderColor: colors.border,
             },
           ]}
-          onLayout={(e) => {
-            // Dimensions 추정 대신 실제 렌더된 컨테이너 폭을 측정해서 페이지 폭으로 사용.
-            // CalendarList의 scrollToDay는 offset = 달_index × calendarWidth로 계산하는데,
-            // iOS PWA에선 Dimensions.window.width가 실제 폭과 어긋나 offset이 범위를 벗어나
-            // 양끝(과거/미래 끝)으로 clamp되던 문제를 차단한다. (좌우 보더 1px씩 제외)
-            const w = Math.floor(e.nativeEvent.layout.width) - 2;
-            if (w > 0 && w !== calendarWidth) setCalendarWidth(w);
-          }}
         >
           <CalendarList
             ref={calendarListRef}
