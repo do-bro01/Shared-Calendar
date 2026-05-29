@@ -10,6 +10,7 @@ import {
   Alert,
   Animated,
   PanResponder,
+  Platform,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -130,6 +131,9 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
             flexDirection: "row",
             width: width * 3,
             transform: [{ translateX }],
+            // 웹: 세로 스크롤은 브라우저가, 가로 제스처는 우리 PanResponder가 처리하도록.
+            // (iOS WebKit에서 가로 스와이프 중 세로 스크롤이 끼어들어 끊기는 문제 해결)
+            ...(Platform.OS === "web" ? { touchAction: "pan-y" } : null),
           }}
           {...pan.panHandlers}
         >
