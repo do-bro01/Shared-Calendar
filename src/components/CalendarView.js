@@ -355,8 +355,7 @@ export default function CalendarView({
           style={[
             styles.calendarWrapper,
             {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
+              backgroundColor: colors.background,
             },
           ]}
         >
@@ -374,7 +373,7 @@ export default function CalendarView({
                 markingType={"multi-period"}
                 markedDates={calendarMarkedDates}
                 theme={{
-                  calendarBackground: colors.card,
+                  calendarBackground: colors.background,
                   monthTextColor: colors.text,
                   textSectionTitleColor: colors.text,
                   textDayColor: colors.text,
@@ -622,8 +621,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     overflow: "hidden",
     marginBottom: Spacing.sm,
-    borderWidth: 1,
-    ...Shadow.sm,
   },
   eventList: {
     marginTop: Spacing.sm,
