@@ -8,9 +8,8 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
-  Dimensions,
 } from "react-native";
-import { CalendarList } from "react-native-calendars";
+import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EventModal from "./EventModal";
@@ -21,12 +20,6 @@ import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 // MainTabNavigator의 tabBarStyle: bottom 12 + height 72
 const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
 const GAP_ABOVE_TAB_BAR = 10;
-
-// CalendarList horizontal 모드의 페이지 폭 = 화면폭 - 좌우 패딩 16*2
-// 정수로 floor — 소수점 폭이면 paging 스크롤 위치가 매번 어긋남
-const HORIZONTAL_PADDING = Spacing.lg;
-const getCalendarWidth = () =>
-  Math.floor(Dimensions.get("window").width - HORIZONTAL_PADDING * 2);
 
 const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const formatGreetingDate = (date) => {
@@ -50,13 +43,12 @@ export default function CalendarView({
 }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
-  const [calendarWidth, setCalendarWidth] = useState(getCalendarWidth());
   const theme = useTheme();
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
 
-  // 캘린더 초기 월 위치는 CalendarList의 current + initialScrollIndex 기본 동작에만 맡긴다.
-  // (수동 scrollToDay/scrollLeft 보정은 iOS Safari/PWA에서 슬라이드·월 튐을 유발해 전부 제거)
+  // 단일 월(Calendar) + enableSwipeMonths. 보여줄 월은 Calendar 내부 state로 관리되고
+  // 스와이프/헤더 화살표로 ±1개월 이동. 스크롤 위치 계산이 없어 모바일 위치 버그가 없음.
 
   const addButtonMarginBottom = Math.max(
     8,
@@ -220,7 +212,6 @@ export default function CalendarView({
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      onLayout={() => setCalendarWidth(getCalendarWidth())}
     >
       <ScrollView
         style={{ flex: 1 }}
@@ -238,14 +229,9 @@ export default function CalendarView({
             },
           ]}
         >
-          <CalendarList
-            key={`${theme.mode}-${calendarWidth}`}
-            horizontal
-            pagingEnabled
-            pastScrollRange={24}
-            futureScrollRange={24}
-            calendarWidth={calendarWidth}
-            showScrollIndicator={false}
+          <Calendar
+            key={theme.mode}
+            enableSwipeMonths
             current={selectedDate}
             onDayPress={(day) => onSelectDate(day.dateString)}
             markingType={"multi-period"}
