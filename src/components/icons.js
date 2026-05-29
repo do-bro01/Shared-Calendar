@@ -928,9 +928,52 @@ export function EventAvailableIcon({ size = 20, color = "#000", style }) {
   );
 }
 
+// 🔍 돋보기 (검색) — 렌즈(원) + 손잡이(대각선 막대)
+export function SearchIcon({ size = 20, color = "#000", style }) {
+  const stroke = Math.max(1.6, size / 9);
+  const lens = size * 0.56; // 렌즈 지름
+  const cx = size * 0.42;
+  const cy = size * 0.42;
+  // 렌즈 우하단 가장자리(45°)에서 우하단 모서리까지 손잡이를 잇는다
+  const edge = (lens / 2) * 0.7071;
+  const hx0 = cx + edge;
+  const hy0 = cy + edge;
+  const hx1 = size * 0.86;
+  const hy1 = size * 0.86;
+  const handleLen = Math.hypot(hx1 - hx0, hy1 - hy0);
+
+  return (
+    <View style={[{ width: size, height: size }, style]}>
+      {/* 렌즈 */}
+      <View
+        style={{
+          position: "absolute",
+          left: cx - lens / 2,
+          top: cy - lens / 2,
+          width: lens,
+          height: lens,
+          borderRadius: lens / 2,
+          borderWidth: stroke,
+          borderColor: color,
+        }}
+      />
+      {/* 손잡이 */}
+      <Stroke
+        cx={(hx0 + hx1) / 2}
+        cy={(hy0 + hy1) / 2}
+        length={handleLen}
+        thickness={stroke}
+        color={color}
+        rotate={45}
+      />
+    </View>
+  );
+}
+
 export default {
   CalendarIcon,
   AddIcon,
+  SearchIcon,
   CheckIcon,
   ChevronRightIcon,
   ChevronLeftIcon,

@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef, useLayoutEffect } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -11,12 +12,15 @@ import {
   Animated,
   PanResponder,
   Platform,
+  Modal,
+  Pressable,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EventModal from "./EventModal";
 import Button from "./Button";
+import { SearchIcon } from "./icons";
 import { useTheme } from "../context/ThemeContext";
 import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 
@@ -30,6 +34,22 @@ const formatGreetingDate = (date) => {
   const d = date.getDate();
   const wd = WEEKDAY_KO[date.getDay()];
   return `${m}월 ${d}일 (${wd})`;
+};
+
+// 일정 한 건의 날짜/시간 텍스트 (일정 목록 + 검색 결과 공용)
+const formatEventShortDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return `${date.getMonth() + 1}월${date.getDate()}일`;
+};
+const trimEventTime = (t) => (typeof t === "string" ? t.slice(0, 5) : t);
+const buildEventDateText = (ev) => {
+  const base =
+    ev.endDate && ev.endDate !== ev.date
+      ? `${formatEventShortDate(ev.date)}~${formatEventShortDate(ev.endDate)}`
+      : formatEventShortDate(ev.date);
+  return !ev.isHoliday && ev.allDay === false && ev.startTime && ev.endTime
+    ? `${base}  ${trimEventTime(ev.startTime)} ~ ${trimEventTime(ev.endTime)}`
+    : base;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -162,6 +182,8 @@ export default function CalendarView({
 }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const theme = useTheme();
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
@@ -306,34 +328,80 @@ export default function CalendarView({
     };
   }, [events, useGreeting]);
 
+  // 검색: 제목으로 필터 후 날짜순 정렬 (공휴일도 검색 대상에 포함)
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return events
+      .filter((ev) => (ev.title || "").toLowerCase().includes(q))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [events, searchQuery]);
+
+  const closeSearch = () => {
+    setSearchVisible(false);
+    setSearchQuery("");
+  };
+
+  // 검색 결과 선택 → 해당 날짜 선택 + 그 달로 캘린더 이동
+  const jumpToEvent = (ev) => {
+    closeSearch();
+    onSelectDate(ev.date);
+    const [y, mo] = ev.date.split("-").map(Number);
+    if (y && mo) setDisplayMonth(new Date(y, mo - 1, 1));
+  };
+
   const renderHeader = () => {
+    // 브랜드 컬러(#395fa5) 톤의 부드러운 원형 버튼 — 라이트/다크 모두 자연스럽게.
+    const searchBtnBg =
+      theme.mode === "dark" ? "rgba(57,95,165,0.22)" : "rgba(57,95,165,0.10)";
+    const searchButton = (
+      <TouchableOpacity
+        onPress={() => setSearchVisible(true)}
+        style={[styles.searchButton, { backgroundColor: searchBtnBg }]}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="일정 검색"
+      >
+        <SearchIcon size={20} color={colors.tint} />
+      </TouchableOpacity>
+    );
+
     if (useGreeting && greetingMeta) {
       const titleText = greetingName
         ? `안녕하세요, ${greetingName}님!`
         : "안녕하세요!";
       return (
-        <View style={styles.greetingHeader}>
-          <Text style={[styles.greetingTitle, { color: colors.text }]}>
-            {titleText}
-          </Text>
-          <Text style={[styles.greetingSubtitle, { color: colors.muted }]}>
-            오늘 일정 {greetingMeta.count}개 · {greetingMeta.dateLabel}
-          </Text>
+        <View style={[styles.headerRow, styles.greetingHeader]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.greetingTitle, { color: colors.text }]}>
+              {titleText}
+            </Text>
+            <Text style={[styles.greetingSubtitle, { color: colors.muted }]}>
+              오늘 일정 {greetingMeta.count}개 · {greetingMeta.dateLabel}
+            </Text>
+          </View>
+          {searchButton}
         </View>
       );
     }
 
-    if (!title) return null;
+    // title이 비어 있어도(공유 달력) 검색 버튼은 우상단에 노출
+    if (!title) {
+      return (
+        <View style={[styles.headerRow, styles.searchOnlyRow]}>
+          {searchButton}
+        </View>
+      );
+    }
 
     return (
-      <Text
-        style={[
-          isShared ? styles.headerTitleShared : styles.headerTitle,
-          { color: colors.text },
-        ]}
-      >
-        {title}
-      </Text>
+      <View style={[styles.headerRow, styles.titleHeaderRow]}>
+        <View style={styles.headerSide} />
+        <Text style={[styles.headerTitleCentered, { color: colors.text }]}>
+          {title}
+        </Text>
+        <View style={styles.headerSide}>{searchButton}</View>
+      </View>
     );
   };
 
@@ -438,28 +506,7 @@ export default function CalendarView({
                 return selectedDate >= startDate && selectedDate <= endDate;
               })
               .map((ev) => {
-                const formatDate = (dateStr) => {
-                  const date = new Date(dateStr);
-                  const month = date.getMonth() + 1;
-                  const day = date.getDate();
-                  return `${month}월${day}일`;
-                };
-
-                const trimTime = (t) =>
-                  typeof t === "string" ? t.slice(0, 5) : t;
-
-                const baseDateText =
-                  ev.endDate && ev.endDate !== ev.date
-                    ? `${formatDate(ev.date)}~${formatDate(ev.endDate)}`
-                    : formatDate(ev.date);
-
-                const dateText =
-                  !ev.isHoliday &&
-                  ev.allDay === false &&
-                  ev.startTime &&
-                  ev.endTime
-                    ? `${baseDateText}  ${trimTime(ev.startTime)} ~ ${trimTime(ev.endTime)}`
-                    : baseDateText;
+                const dateText = buildEventDateText(ev);
 
                 // 좌측 컬러 바 색상: 공휴일은 빨강, 그 외는 일정 dotColor 또는 브랜드 컬러
                 const accentColor = ev.isHoliday
@@ -562,6 +609,166 @@ export default function CalendarView({
             : undefined
         }
       />
+
+      <Modal
+        visible={searchVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={closeSearch}
+      >
+        <View style={styles.searchOverlay}>
+          {/* 바깥 영역 탭 → 닫기 */}
+          <Pressable style={{ flex: 1 }} onPress={closeSearch} />
+
+          <View
+            style={[
+              styles.searchSheet,
+              {
+                backgroundColor: colors.background,
+                paddingBottom: Math.max(Spacing.lg, insets.bottom),
+              },
+            ]}
+          >
+            {/* 드래그 핸들 */}
+            <View style={styles.sheetHandleWrap}>
+              <View
+                style={[styles.sheetHandle, { backgroundColor: colors.border }]}
+              />
+            </View>
+
+            <View style={styles.searchBarRow}>
+              <View
+                style={[
+                  styles.searchInputWrap,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <SearchIcon size={18} color={colors.muted} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="일정 제목 검색"
+                  placeholderTextColor={colors.muted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                  returnKeyType="search"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setSearchQuery("")}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <MaterialIcons
+                      name="cancel"
+                      size={18}
+                      color={colors.muted}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <TouchableOpacity onPress={closeSearch} style={styles.searchCancel}>
+                <Text style={[styles.searchCancelText, { color: colors.tint }]}>
+                  취소
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchResultsArea}>
+              {searchQuery.trim().length === 0 ? (
+                <View style={styles.searchEmpty}>
+                  <SearchIcon
+                    size={44}
+                    color={colors.text}
+                    style={{ opacity: 0.25 }}
+                  />
+                  <Text
+                    style={[styles.searchEmptyText, { color: colors.muted }]}
+                  >
+                    일정 제목으로 검색해보세요
+                  </Text>
+                </View>
+              ) : searchResults.length === 0 ? (
+                <View style={styles.searchEmpty}>
+                  <MaterialIcons
+                    name="search-off"
+                    size={44}
+                    color={colors.text}
+                    style={{ opacity: 0.25 }}
+                  />
+                  <Text
+                    style={[styles.searchEmptyText, { color: colors.muted }]}
+                  >
+                    {`'${searchQuery.trim()}' 검색 결과가 없어요`}
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView
+                  contentContainerStyle={styles.searchListContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <Text style={[styles.searchCount, { color: colors.muted }]}>
+                    {searchResults.length}개의 일정
+                  </Text>
+                  {searchResults.map((ev) => {
+                    const accentColor = ev.isHoliday
+                      ? "#e53935"
+                      : ev.dotColor || colors.tint;
+                    return (
+                      <TouchableOpacity
+                        key={ev.id}
+                        style={[
+                          styles.eventItem,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => jumpToEvent(ev)}
+                        activeOpacity={0.7}
+                      >
+                        <View
+                          style={[
+                            styles.eventAccentBar,
+                            { backgroundColor: accentColor },
+                          ]}
+                        />
+                        <View style={styles.eventContent}>
+                          <Text
+                            style={[
+                              styles.eventText,
+                              {
+                                color: ev.isHoliday ? "#e53935" : colors.text,
+                                fontWeight: ev.isHoliday
+                                  ? Typography.weights.bold
+                                  : Typography.weights.semibold,
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {ev.title}
+                          </Text>
+                          <Text
+                            style={[styles.eventDate, { color: colors.muted }]}
+                          >
+                            {buildEventDateText(ev)}
+                          </Text>
+                        </View>
+                        <MaterialIcons
+                          name="chevron-right"
+                          size={20}
+                          color={colors.muted}
+                          style={{ alignSelf: "center" }}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -677,5 +884,109 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginHorizontal: 30,
     alignItems: "center",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  searchOnlyRow: {
+    justifyContent: "flex-end",
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  titleHeaderRow: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  headerSide: {
+    width: 40,
+    alignItems: "flex-end",
+  },
+  headerTitleCentered: {
+    flex: 1,
+    fontSize: Typography.title1,
+    fontWeight: Typography.weights.bold,
+    textAlign: "center",
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  searchSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: Spacing.sm,
+    minHeight: "60%",
+    maxHeight: "88%",
+  },
+  sheetHandleWrap: {
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  searchResultsArea: {
+    flex: 1,
+  },
+  searchBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  searchInputWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: Typography.body,
+    paddingVertical: 0,
+  },
+  searchCancel: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+  },
+  searchCancelText: {
+    fontSize: Typography.body,
+    fontWeight: Typography.weights.semibold,
+  },
+  searchListContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  searchCount: {
+    fontSize: Typography.footnote,
+    marginBottom: Spacing.sm,
+    marginLeft: 2,
+  },
+  searchEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  searchEmptyText: {
+    fontSize: Typography.subhead,
   },
 });
