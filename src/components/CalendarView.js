@@ -91,7 +91,7 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
       // 가로 의도일 때만 가로 페이징을 가로챔 → 세로 스크롤은 바깥 ScrollView에 양보
       onMoveShouldSetPanResponder: (_, g) =>
         !animatingRef.current &&
-        Math.abs(g.dx) > 12 &&
+        Math.abs(g.dx) > 9 &&
         Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
       onPanResponderGrant: () => {
         translateX.stopAnimation();
@@ -102,7 +102,7 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
       onPanResponderRelease: (_, g) => {
         const w = widthRef.current;
         if (w === 0) return;
-        const threshold = Math.min(60, w * 0.25);
+        const threshold = Math.min(48, w * 0.2);
         if (g.dx <= -threshold) animateAndChange(-2 * w, 1); // 다음 달
         else if (g.dx >= threshold) animateAndChange(0, -1); // 이전 달
         else animateAndChange(-w, 0); // 임계값 미달 → 원위치
