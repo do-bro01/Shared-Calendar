@@ -1,5 +1,5 @@
 // SC/src/components/CalendarView.js
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -29,6 +31,119 @@ const formatGreetingDate = (date) => {
   return `${m}월 ${d}일 (${wd})`;
 };
 
+// ─────────────────────────────────────────────────────────────
+// 월 페이저 (손가락 따라 드래그 → 스냅)
+// 핵심: "보여줄 월"은 부모의 state(month)로 관리하고, 스와이프는 transform(translateX)만 움직임.
+// 브라우저 스크롤 위치(initialScrollIndex/scrollLeft)에 의존하지 않으므로 모바일 위치 버그가 없음.
+// prev/current/next 3개월을 가로로 깔고, 가운데(-width)가 기본. 드래그/화살표로 ±1달 스냅.
+// ─────────────────────────────────────────────────────────────
+const firstOfMonthDate = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+const addMonthsDate = (d, n) => new Date(d.getFullYear(), d.getMonth() + n, 1);
+const toMonthString = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+const SWIPE_DURATION = 220;
+
+function MonthPager({ month, onChangeMonth, renderMonth }) {
+  const [width, setWidth] = useState(0);
+  const widthRef = useRef(0);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const animatingRef = useRef(false);
+  const monthRef = useRef(month);
+  monthRef.current = month;
+  const onChangeRef = useRef(onChangeMonth);
+  onChangeRef.current = onChangeMonth;
+
+  const setWidthSafe = (w) => {
+    if (w > 0 && w !== widthRef.current) {
+      widthRef.current = w;
+      setWidth(w);
+      translateX.setValue(-w); // 가운데 패널로 정렬
+    }
+  };
+
+  // 월이 바뀐 뒤(스와이프/화살표로 onChangeMonth 호출) 가운데로 재정렬.
+  // useLayoutEffect는 DOM 커밋 후 paint 전에 실행 → 다른 달이 한 프레임 보이는 깜빡임 방지.
+  useLayoutEffect(() => {
+    translateX.setValue(-widthRef.current);
+  }, [month, translateX]);
+
+  const animateAndChange = (toValue, delta) => {
+    if (animatingRef.current || widthRef.current === 0) return;
+    animatingRef.current = true;
+    Animated.timing(translateX, {
+      toValue,
+      duration: SWIPE_DURATION,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      animatingRef.current = false;
+      if (finished && delta !== 0) {
+        onChangeRef.current?.(addMonthsDate(monthRef.current, delta));
+      }
+    });
+  };
+
+  const goPrev = () => animateAndChange(0, -1);
+  const goNext = () => animateAndChange(-2 * widthRef.current, 1);
+
+  const pan = useRef(
+    PanResponder.create({
+      // 가로 의도일 때만 가로 페이징을 가로챔 → 세로 스크롤은 바깥 ScrollView에 양보
+      onMoveShouldSetPanResponder: (_, g) =>
+        !animatingRef.current &&
+        Math.abs(g.dx) > 12 &&
+        Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderGrant: () => {
+        translateX.stopAnimation();
+      },
+      onPanResponderMove: (_, g) => {
+        translateX.setValue(-widthRef.current + g.dx);
+      },
+      onPanResponderRelease: (_, g) => {
+        const w = widthRef.current;
+        if (w === 0) return;
+        const threshold = Math.min(60, w * 0.25);
+        if (g.dx <= -threshold) animateAndChange(-2 * w, 1); // 다음 달
+        else if (g.dx >= threshold) animateAndChange(0, -1); // 이전 달
+        else animateAndChange(-w, 0); // 임계값 미달 → 원위치
+      },
+      onPanResponderTerminate: () => {
+        Animated.timing(translateX, {
+          toValue: -widthRef.current,
+          duration: 150,
+          useNativeDriver: false,
+        }).start();
+      },
+    }),
+  ).current;
+
+  const prevM = addMonthsDate(month, -1);
+  const nextM = addMonthsDate(month, 1);
+
+  return (
+    <View
+      style={{ overflow: "hidden" }}
+      onLayout={(e) => setWidthSafe(Math.round(e.nativeEvent.layout.width))}
+    >
+      {width > 0 && (
+        <Animated.View
+          style={{
+            flexDirection: "row",
+            width: width * 3,
+            transform: [{ translateX }],
+          }}
+          {...pan.panHandlers}
+        >
+          {[prevM, month, nextM].map((m) => (
+            <View key={toMonthString(m)} style={{ width }}>
+              {renderMonth(m, goPrev, goNext)}
+            </View>
+          ))}
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
 export default function CalendarView({
   selectedDate,
   events,
@@ -47,8 +162,17 @@ export default function CalendarView({
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
 
-  // 단일 월(Calendar) + enableSwipeMonths. 보여줄 월은 Calendar 내부 state로 관리되고
-  // 스와이프/헤더 화살표로 ±1개월 이동. 스크롤 위치 계산이 없어 모바일 위치 버그가 없음.
+  // 캘린더에 보여줄 "월"을 상태로 관리(스크롤 위치가 아님). 초기값 = selectedDate(오늘)의 달.
+  // 스와이프/화살표는 이 상태를 ±1달 바꿀 뿐 → 모바일 위치 버그 없음. [[MonthPager]]
+  const [displayMonth, setDisplayMonth] = useState(() => {
+    const m = /^\d{4}-\d{2}-\d{2}$/.test(selectedDate || "")
+      ? (() => {
+          const [y, mo] = selectedDate.split("-").map(Number);
+          return new Date(y, mo - 1, 1);
+        })()
+      : firstOfMonthDate(new Date());
+    return m;
+  });
 
   const addButtonMarginBottom = Math.max(
     8,
@@ -209,6 +333,9 @@ export default function CalendarView({
     );
   };
 
+  // 3개월 패널이 공유하도록 한 번만 계산
+  const calendarMarkedDates = getMarkedDates();
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -229,32 +356,40 @@ export default function CalendarView({
             },
           ]}
         >
-          <Calendar
+          <MonthPager
+            // 테마 변경 시 Calendar는 스타일을 마운트 시 한 번만 계산하므로(useRef) 전체 리마운트로 재테마.
             key={theme.mode}
-            enableSwipeMonths
-            current={selectedDate}
-            onDayPress={(day) => onSelectDate(day.dateString)}
-            markingType={"multi-period"}
-            markedDates={getMarkedDates()}
-            theme={{
-              calendarBackground: colors.card,
-              monthTextColor: colors.text,
-              textSectionTitleColor: colors.text,
-              textDayColor: colors.text,
-              selectedDayBackgroundColor: colors.tint,
-              selectedDayTextColor: "#fff",
-              todayTextColor: colors.tint,
-              todayBackgroundColor: "transparent",
-              arrowColor: colors.tint,
-              textMonthFontSize: Typography.headline,
-              textMonthFontWeight: Typography.weights.bold,
-              textDayFontWeight: Typography.weights.medium,
-              textDayHeaderFontWeight: Typography.weights.semibold,
-              textDayHeaderFontSize: Typography.caption,
-              textMonthFontFamily: Typography.fontFamily,
-              textDayFontFamily: Typography.fontFamily,
-              textDayHeaderFontFamily: Typography.fontFamily,
-            }}
+            month={displayMonth}
+            onChangeMonth={setDisplayMonth}
+            renderMonth={(monthDate, goPrev, goNext) => (
+              <Calendar
+                initialDate={toMonthString(monthDate)}
+                onDayPress={(day) => onSelectDate(day.dateString)}
+                onPressArrowLeft={goPrev}
+                onPressArrowRight={goNext}
+                markingType={"multi-period"}
+                markedDates={calendarMarkedDates}
+                theme={{
+                  calendarBackground: colors.card,
+                  monthTextColor: colors.text,
+                  textSectionTitleColor: colors.text,
+                  textDayColor: colors.text,
+                  selectedDayBackgroundColor: colors.tint,
+                  selectedDayTextColor: "#fff",
+                  todayTextColor: colors.tint,
+                  todayBackgroundColor: "transparent",
+                  arrowColor: colors.tint,
+                  textMonthFontSize: Typography.headline,
+                  textMonthFontWeight: Typography.weights.bold,
+                  textDayFontWeight: Typography.weights.medium,
+                  textDayHeaderFontWeight: Typography.weights.semibold,
+                  textDayHeaderFontSize: Typography.caption,
+                  textMonthFontFamily: Typography.fontFamily,
+                  textDayFontFamily: Typography.fontFamily,
+                  textDayHeaderFontFamily: Typography.fontFamily,
+                }}
+              />
+            )}
           />
         </View>
 
