@@ -481,6 +481,13 @@ export default function SettingsScreen() {
               gap: 8,
             }}
             onPress={async () => {
+              // 웹에서는 브라우저 새로고침(cmd+R)과 동일하게 전체 페이지를 다시 로드해
+              // 모든 탭이 처음부터 새로 로드되도록 함
+              if (Platform.OS === "web") {
+                window.location.reload();
+                return;
+              }
+              // 네이티브에서는 현재 화면 데이터 + 다른 탭들을 함께 새로고침
               setLoadingProfile(true);
               const profile = await UserService.getCurrentUserProfile();
               if (profile) {
@@ -489,7 +496,6 @@ export default function SettingsScreen() {
               }
               await loadFriends();
               setLoadingProfile(false);
-              // 개인/공유 캘린더 화면도 함께 새로고침
               refreshBus.emit();
             }}
           >

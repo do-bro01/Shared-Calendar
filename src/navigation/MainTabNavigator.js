@@ -21,6 +21,9 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        // 모든 탭을 앱 진입 시 함께 마운트해, 첫 탭 전환 때 로딩이 보이지 않도록 함.
+        // 포커스된 개인 캘린더가 먼저 보이고, 공유 캘린더·설정은 백그라운드에서 미리 로드됨.
+        lazy: false,
         tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.tabIconDefault,
         tabBarLabelStyle: {
