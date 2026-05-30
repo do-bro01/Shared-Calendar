@@ -27,13 +27,16 @@ if (typeof document !== 'undefined') {
   // localStorage에 저장된 테마 모드를 읽어서 초기 status bar / 배경색 결정
   // (ThemeContext와 동일한 키 사용 — FOUC 및 iOS PWA 실행 시 status bar 색상 깜빡임 방지)
   let initialIsDark = false;
+  let initialIsCream = false;
   try {
     const saved = window.localStorage && window.localStorage.getItem('sc-theme-mode');
     initialIsDark = saved === 'dark';
+    const savedCream = window.localStorage && window.localStorage.getItem('sc-theme-cream');
+    initialIsCream = !initialIsDark && savedCream === 'true';
   } catch (_) {
     // localStorage 접근 실패 — light 모드로 폴백
   }
-  const initialBg = initialIsDark ? '#17181b' : '#ffffff';
+  const initialBg = initialIsDark ? '#17181b' : initialIsCream ? '#fbf7ec' : '#ffffff';
   const initialStatusBarStyle = initialIsDark ? 'black' : 'default';
 
   ensureMeta('name', 'theme-color', initialBg);

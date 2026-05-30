@@ -42,7 +42,12 @@ export default function MainTabNavigator() {
           paddingTop: 6,
           borderTopWidth: 0,
           borderWidth: 1,
-          borderColor: theme.mode === "dark" ? "#2f3340" : "#ececf2",
+          borderColor:
+            theme.mode === "dark"
+              ? "#2f3340"
+              : theme.cream
+                ? "#e7decb"
+                : "#ececf2",
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: theme.mode === "dark" ? 0.25 : 0.06,

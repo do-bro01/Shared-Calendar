@@ -12,7 +12,7 @@ import LoginScreen from "./src/screens/LoginScreen";
 import MainTabNavigator from "./src/navigation/MainTabNavigator";
 
 // 앱 전역 기본 폰트를 iOS 시스템 폰트(SF Pro)로 통일.
-// 웹에서는 Apple SD Gothic Neo / Pretendard 폴백 스택 사용 (constants/theme.ts).
+// 웹에서는 LINE Seed KR + Apple SD Gothic Neo 폴백 스택 사용 (constants/theme.ts).
 Text.defaultProps = Text.defaultProps || {};
 Text.defaultProps.style = [
   { fontFamily: Typography.fontFamily },

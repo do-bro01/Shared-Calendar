@@ -148,13 +148,13 @@ const EventModal = ({
   editMode = false,
   eventToEdit = null,
 }) => {
-  const { mode, colors } = useTheme();
+  const { mode, colors, cream } = useTheme();
   const isDark = mode === "dark";
 
   const palette = {
-    surface: isDark ? "#23252b" : "#ffffff",
-    field: isDark ? "#2a2d33" : "#f5f5f5",
-    innerCard: isDark ? "#2f3138" : "#ffffff",
+    surface: isDark ? "#23252b" : cream ? "#fbf7ec" : "#ffffff",
+    field: isDark ? "#2a2d33" : cream ? "#ede5d0" : "#f5f5f5",
+    innerCard: isDark ? "#2f3138" : cream ? "#fbf7ec" : "#ffffff",
     border: isDark ? "#3a3d44" : "#dddddd",
     softBorder: isDark ? "#33363d" : "#cccccc",
     label: isDark ? "#a8acb5" : "#666666",

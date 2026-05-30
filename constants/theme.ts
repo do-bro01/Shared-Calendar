@@ -13,6 +13,16 @@ export const Colors = {
     danger: "#da4a47",
     tabIconDefault: "#687076",
   },
+  cream: {
+    text: "#11181C",
+    background: "#fbf7ec",
+    card: "#f3edde",
+    border: "#e7decb",
+    muted: "#6b7280",
+    tint: tintColor,
+    danger: "#da4a47",
+    tabIconDefault: "#687076",
+  },
   dark: {
     text: "#ECEDEE",
     background: "#17181bff",
@@ -42,15 +52,15 @@ export const Radius = {
 };
 
 // 네이티브는 'System' (iOS = SF Pro / Apple SD Gothic Neo, Android = Roboto / Noto Sans CJK).
-// 웹은 Pretendard 우선, 폴백으로 Apple 시스템 스택.
-// Pretendard CDN은 ThemeContext의 applyWebTheme에서 1회 주입.
-// (Pretendard에서 Gowun Dodum 등으로 바꾸려면 이 한 줄만 교체)
+// 웹은 LINE Seed KR 우선, 폴백으로 Apple 시스템 스택.
+// LINE Seed KR CDN은 ThemeContext의 applyWebTheme에서 1회 주입.
+// (다른 폰트로 바꾸려면 이 한 줄과 ThemeContext의 WEB_FONT_HREF만 교체)
 export const Typography = {
   fontFamily: Platform.select({
     ios: "System",
     android: "System",
     default:
-      'Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, system-ui, sans-serif',
+      '"LINESeedKR", "LINE Seed KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, system-ui, sans-serif',
   }) as string,
   largeTitle: 34,
   title1: 28,

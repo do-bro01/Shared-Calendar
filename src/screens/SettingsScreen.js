@@ -215,6 +215,7 @@ export default function SettingsScreen() {
   };
 
   const toggleDarkModeSwitch = () => theme.toggle();
+  const toggleCreamModeSwitch = () => theme.toggleCream();
 
   const SettingsItem = ({
     icon,
@@ -656,6 +657,15 @@ export default function SettingsScreen() {
               value={theme.mode === "dark"}
               onValueChange={toggleDarkModeSwitch}
             />
+            {theme.mode === "light" && (
+              <SettingsItem
+                icon="local-cafe"
+                title="크림 모드"
+                isToggle={true}
+                value={theme.cream}
+                onValueChange={toggleCreamModeSwitch}
+              />
+            )}
           </View>
 
           {/* 일반 설정 섹션 */}
