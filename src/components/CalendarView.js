@@ -43,6 +43,8 @@ import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 // MainTabNavigator의 tabBarStyle: bottom 12 + height 72
 const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
 const GAP_ABOVE_TAB_BAR = 10;
+// "일정 추가" 버튼 영역의 대략적 높이 (paddingVertical 8 + 텍스트/아이콘). 스크롤이 버튼 뒤로 충분히 지나가도록 여유 포함.
+const ADD_BUTTON_AREA_HEIGHT = 56;
 
 // 일정 항목 추가/삭제/이동에 부드러운 전환을 적용하기 위한 Animated TouchableOpacity
 const AnimatedTouchable = Reanimated.createAnimatedComponent(TouchableOpacity);
@@ -520,7 +522,13 @@ export default function CalendarView({
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom:
+              Spacing.xl + ADD_BUTTON_AREA_HEIGHT + addButtonMarginBottom,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {renderHeader()}
@@ -542,7 +550,20 @@ export default function CalendarView({
             renderMonth={(monthDate, goPrev, goNext) => (
               <Calendar
                 initialDate={toMonthString(monthDate)}
-                onDayPress={(day) => onSelectDate(day.dateString)}
+                // 내부 자동 월이동을 막고 우리 displayMonth로 일원화.
+                // (overflow 날짜 탭 시 Calendar가 혼자 다른 달로 drift → 부모 state와 어긋나
+                //  Today 버튼/스와이프 방향이 깨지던 버그 방지)
+                disableMonthChange
+                onDayPress={(day) => {
+                  onSelectDate(day.dateString);
+                  const [y, mo] = day.dateString.split("-").map(Number);
+                  if (
+                    y !== monthDate.getFullYear() ||
+                    mo - 1 !== monthDate.getMonth()
+                  ) {
+                    setDisplayMonth(new Date(y, mo - 1, 1));
+                  }
+                }}
                 onPressArrowLeft={goPrev}
                 onPressArrowRight={goNext}
                 markingType={"multi-period"}
@@ -683,8 +704,9 @@ export default function CalendarView({
       <View
         style={[
           styles.addButtonWrapper,
-          { marginBottom: addButtonMarginBottom },
+          { bottom: addButtonMarginBottom },
         ]}
+        pointerEvents="box-none"
       >
         <Button
           title="일정 추가"
@@ -1014,7 +1036,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   addButtonWrapper: {
-    marginTop: 0,
+    position: "absolute",
+    left: 0,
+    right: 0,
     marginHorizontal: 30,
     alignItems: "center",
   },
