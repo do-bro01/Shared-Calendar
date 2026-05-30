@@ -535,7 +535,7 @@ export default function CalendarView({
         >
           <MonthPager
             // 테마 변경 시 Calendar는 스타일을 마운트 시 한 번만 계산하므로(useRef) 전체 리마운트로 재테마.
-            key={theme.mode}
+            key={`${theme.mode}-${theme.cream ? "cream" : "plain"}`}
             ref={pagerRef}
             month={displayMonth}
             onChangeMonth={setDisplayMonth}
