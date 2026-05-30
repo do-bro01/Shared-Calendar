@@ -16,6 +16,12 @@ import {
   Alert,
   Pressable,
 } from "react-native";
+import Reanimated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from "react-native-reanimated";
 import Button from "./Button";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -165,6 +171,19 @@ const EventModal = ({
     pillText: isDark ? "#1f2026" : "#ffffff",
     pillBorderOff: isDark ? "#5a5e68" : "#aab0bb",
   };
+
+  // 시트와 dim의 페이드/슬라이드 아웃이 끝날 때까지 Modal을 유지하기 위한 마운트 상태.
+  // visible=true → isMounted=true → Modal mount → dim FadeIn + 시트 SlideInDown 동시에
+  // visible=false → dim/시트 unmount(페이드/슬라이드 아웃) → 220ms 뒤 Modal도 unmount
+  const [isMounted, setIsMounted] = useState(visible);
+  useEffect(() => {
+    if (visible) {
+      setIsMounted(true);
+    } else if (isMounted) {
+      const t = setTimeout(() => setIsMounted(false), 220);
+      return () => clearTimeout(t);
+    }
+  }, [visible, isMounted]);
 
   const [title, setTitle] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);
@@ -613,33 +632,54 @@ const EventModal = ({
 
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
+      visible={isMounted}
+      animationType="none"
       transparent={true}
       onRequestClose={onClose}
     >
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
           justifyContent: "flex-end",
         }}
       >
+        {/* dim은 시트와 동시에 페이드 인/아웃 → 시트가 올라오면서 점점 어두워지고, 내려가면서 점점 밝아짐 */}
+        {visible && (
+          <Reanimated.View
+            pointerEvents="none"
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(180)}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.3)",
+            }}
+          />
+        )}
+
         {/* 바깥 영역 탭 → 닫기 */}
         <Pressable style={{ flex: 1 }} onPress={onClose} />
 
-        <View
-          style={{
-            backgroundColor: palette.surface,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            paddingHorizontal: 20,
-            paddingTop: 10,
-            paddingBottom: 20,
-            maxHeight: "92%",
-          }}
-        >
-          {/* 드래그 핸들 */}
+        {/* 시트는 visible 토글에 맞춰 mount/unmount되어 슬라이드 인/아웃 */}
+        {visible && (
+          <Reanimated.View
+            entering={SlideInDown.duration(200)}
+            exiting={SlideOutDown.duration(180)}
+            style={{
+              backgroundColor: palette.surface,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingHorizontal: 20,
+              paddingTop: 10,
+              paddingBottom: 20,
+              // 콘텐츠 크기와 무관하게 한 번에 끝까지 올라오고, 안에서 요소가 재배치되도록 고정 높이
+              height: "92%",
+            }}
+          >
+            {/* 드래그 핸들 */}
           <View style={{ alignItems: "center", marginBottom: 6 }}>
             <View
               style={{
@@ -653,6 +693,7 @@ const EventModal = ({
 
           <ScrollView
             ref={scrollRef}
+            style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 8 }}
             keyboardShouldPersistTaps="handled"
@@ -971,7 +1012,8 @@ const EventModal = ({
               />
             </View>
           </View>
-        </View>
+          </Reanimated.View>
+        )}
       </View>
     </Modal>
   );

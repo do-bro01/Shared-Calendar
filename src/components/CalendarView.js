@@ -5,6 +5,7 @@ import React, {
   useRef,
   useCallback,
   useLayoutEffect,
+  useEffect,
   forwardRef,
   useImperativeHandle,
 } from "react";
@@ -27,6 +28,8 @@ import Reanimated, {
   FadeIn,
   FadeOut,
   LinearTransition,
+  SlideInDown,
+  SlideOutDown,
 } from "react-native-reanimated";
 import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -254,6 +257,18 @@ export default function CalendarView({
   const [editingEvent, setEditingEvent] = useState(null);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // 검색 dim/시트 페이드·슬라이드 아웃이 끝날 때까지 Modal을 유지하기 위한 마운트 상태.
+  // searchVisible=true → Modal mount → dim FadeIn + 시트 SlideInDown 동시에
+  // searchVisible=false → dim/시트 unmount(페이드/슬라이드 아웃) → 220ms 뒤 Modal도 unmount
+  const [searchMounted, setSearchMounted] = useState(false);
+  useEffect(() => {
+    if (searchVisible) {
+      setSearchMounted(true);
+    } else if (searchMounted) {
+      const t = setTimeout(() => setSearchMounted(false), 220);
+      return () => clearTimeout(t);
+    }
+  }, [searchVisible, searchMounted]);
   const theme = useTheme();
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
@@ -440,7 +455,7 @@ export default function CalendarView({
             accessibilityRole="button"
             accessibilityLabel="오늘 달로 이동"
           >
-            <ReturnIcon size={15} color={colors.muted} />
+            <ReturnIcon size={13} color={colors.muted} />
             <Text style={[styles.todayText, { color: colors.muted }]}>
               Today
             </Text>
@@ -711,16 +726,30 @@ export default function CalendarView({
       />
 
       <Modal
-        visible={searchVisible}
-        animationType="slide"
+        visible={searchMounted}
+        animationType="none"
         transparent
         onRequestClose={closeSearch}
       >
         <View style={styles.searchOverlay}>
+          {/* dim은 시트와 동시에 페이드 인/아웃 → 시트가 올라오면서 점점 어두워지고, 내려가면서 점점 밝아짐 */}
+          {searchVisible && (
+            <Reanimated.View
+              pointerEvents="none"
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(180)}
+              style={styles.searchDim}
+            />
+          )}
+
           {/* 바깥 영역 탭 → 닫기 */}
           <Pressable style={{ flex: 1 }} onPress={closeSearch} />
 
-          <View
+          {/* 시트는 searchVisible로 mount 토글되어 슬라이드 인/아웃 */}
+          {searchVisible && (
+          <Reanimated.View
+            entering={SlideInDown.duration(200)}
+            exiting={SlideOutDown.duration(180)}
             style={[
               styles.searchSheet,
               {
@@ -869,7 +898,8 @@ export default function CalendarView({
                 </ScrollView>
               )}
             </View>
-          </View>
+          </Reanimated.View>
+          )}
         </View>
       </Modal>
     </SafeAreaView>
@@ -1035,15 +1065,22 @@ const styles = StyleSheet.create({
   },
   searchOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
+  },
+  searchDim: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   searchSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: Spacing.sm,
-    minHeight: "60%",
-    maxHeight: "88%",
+    // 콘텐츠 크기와 무관하게 한 번에 끝까지 올라오고, 안에서 내용이 재배치되도록 고정 높이
+    height: "88%",
   },
   sheetHandleWrap: {
     alignItems: "center",

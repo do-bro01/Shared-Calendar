@@ -3,6 +3,7 @@
 // style prop으로 추가 스타일링 가능. 색은 props로 받기 때문에 다크모드/테마 컬러에 자유롭게 대응됨.
 import React from "react";
 import { View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 // 한 점 (cx, cy)을 중심으로 한 막대 (회전 가능)
 function Stroke({ cx, cy, length, thickness, color, rotate = 0 }) {
@@ -971,43 +972,26 @@ export function SearchIcon({ size = 20, color = "#000", style }) {
   );
 }
 
-// ↩ 되돌리기 (Today로 돌아가기) — 가로 윗선에서 우측이 매끄러운 1/4 원으로 휘어 내려오고 좌측에 화살촉
+// ↩ 되돌리기 (Today로 돌아가기) — 사용자 제공 SVG (좌측 화살촉 + J자 곡선)
+// viewBox y를 8만큼 내려 아이콘 컨텐츠가 박스 상단에 더 가깝게 위치하도록 보정.
 export function ReturnIcon({ size = 20, color = "#000", style }) {
-  const t = Math.max(1.8, size / 9);
-  // 곡선 반지름 = 높이 → 직선 세로부 없이 매끈한 swoop
   return (
-    <View style={[{ width: size, height: size }, style]}>
-      <View
-        style={{
-          position: "absolute",
-          left: size * 0.24,
-          top: size * 0.36,
-          width: size * 0.54,
-          height: size * 0.24,
-          borderColor: color,
-          borderTopWidth: t,
-          borderRightWidth: t,
-          borderTopRightRadius: size * 0.24,
-        }}
+    <Svg width={size} height={size} viewBox="0 8 64 64" fill="none" style={style}>
+      <Path
+        d="M24 16 L10 30 L24 44"
+        stroke={color}
+        strokeWidth={8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      {/* 화살촉 (가로선 좌측 끝에 결합) */}
-      <Stroke
-        cx={size * 0.325}
-        cy={size * 0.275}
-        length={size * 0.24}
-        thickness={t}
-        color={color}
-        rotate={-45}
+      <Path
+        d="M12 30 H40 C52 30 58 37 58 46 C58 55 52 62 40 62 H30"
+        stroke={color}
+        strokeWidth={8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <Stroke
-        cx={size * 0.325}
-        cy={size * 0.445}
-        length={size * 0.24}
-        thickness={t}
-        color={color}
-        rotate={45}
-      />
-    </View>
+    </Svg>
   );
 }
 
