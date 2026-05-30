@@ -5,7 +5,7 @@
       <stop offset="100%" stop-color="#395fa5"/>
     </linearGradient>
     <clipPath id="bodyClip">
-      <rect x="148" y="228" width="728" height="684" rx="80" ry="80"/>
+      <rect x="200" y="272" width="624" height="584" rx="72" ry="72"/>
     </clipPath>
   </defs>
 
@@ -13,28 +13,28 @@
   <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230" fill="url(#bg)"/>
 
   <!-- 달력 상단 바인딩 링 (두 개) -->
-  <rect x="346" y="156" width="46" height="152" rx="23" fill="#ffffff"/>
-  <rect x="632" y="156" width="46" height="152" rx="23" fill="#ffffff"/>
+  <rect x="372" y="204" width="42" height="140" rx="21" fill="#ffffff"/>
+  <rect x="610" y="204" width="42" height="140" rx="21" fill="#ffffff"/>
 
   <!-- 달력 본체 (흰색 둥근 사각형) -->
-  <rect x="148" y="228" width="728" height="684" rx="80" ry="80" fill="#ffffff"/>
+  <rect x="200" y="272" width="624" height="584" rx="72" ry="72" fill="#ffffff"/>
 
   <!-- 상단 헤더 띠 + 요일 점 7개 (본체 라운드에 맞게 클립) -->
   <g clip-path="url(#bodyClip)">
-    <rect x="148" y="228" width="728" height="88" fill="#395fa5"/>
+    <rect x="200" y="272" width="624" height="76" fill="#395fa5"/>
     <g fill="#ffffff">
-      <circle cx="218" cy="272" r="11"/>
-      <circle cx="316" cy="272" r="11"/>
-      <circle cx="414" cy="272" r="11"/>
-      <circle cx="512" cy="272" r="11"/>
-      <circle cx="610" cy="272" r="11"/>
-      <circle cx="708" cy="272" r="11"/>
-      <circle cx="806" cy="272" r="11"/>
+      <circle cx="262" cy="310" r="10"/>
+      <circle cx="346" cy="310" r="10"/>
+      <circle cx="429" cy="310" r="10"/>
+      <circle cx="512" cy="310" r="10"/>
+      <circle cx="595" cy="310" r="10"/>
+      <circle cx="678" cy="310" r="10"/>
+      <circle cx="762" cy="310" r="10"/>
     </g>
   </g>
 
   <!-- SC 로고 (본체 중앙) -->
-  <g transform="translate(512 616) scale(0.56) translate(-517.5 -495)"
+  <g transform="translate(512 620) scale(0.5) translate(-517.5 -495)"
      fill="none"
      stroke="#395fa5"
      stroke-width="105"
