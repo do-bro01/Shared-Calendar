@@ -23,7 +23,7 @@ import { getKoreanHolidaysForYear } from "../constants/koreanHolidays";
 import { refreshBus } from "../lib/refreshBus";
 import CalendarView from "../components/CalendarView";
 import Button from "../components/Button";
-import { SafeAreaView as SafeAreaViewCtx } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 
 export default function SharedCalendarScreen() {
@@ -404,6 +404,7 @@ export default function SharedCalendarScreen() {
 // 단체 달력 보기 컴포넌트
 function SharedCalendarView({ groupId, groupName, onBack }) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [groupEvents, setGroupEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -685,9 +686,11 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
   };
 
   return (
-    <SafeAreaViewCtx
-      style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
-      edges={["top", "left", "right"]}
+    <View
+      style={[
+        styles.safeArea,
+        { backgroundColor: theme.colors.background, paddingTop: insets.top },
+      ]}
     >
       <View style={styles.backHeader}>
         <TouchableOpacity onPress={onBack} style={{ padding: 8 }}>
@@ -998,7 +1001,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
           </View>
         </View>
       </Modal>
-    </SafeAreaViewCtx>
+    </View>
   );
 }
 

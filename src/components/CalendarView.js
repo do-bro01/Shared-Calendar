@@ -280,9 +280,14 @@ export default function CalendarView({
   // 검색 시트 핸들 드래그로 닫기: 시트 1/3 이상 끌어내리고 손 떼면 닫음.
   const searchDragY = useSharedValue(0);
   const searchSheetHeightRef = useRef(0);
+  // 드래그로 닫는 중일 땐 SlideOutDown(exiting)을 끈다. (EventModal과 동일 이유)
+  const [searchClosingByDrag, setSearchClosingByDrag] = useState(false);
 
   useEffect(() => {
-    if (searchVisible) searchDragY.value = 0;
+    if (searchVisible) {
+      searchDragY.value = 0;
+      setSearchClosingByDrag(false);
+    }
   }, [searchVisible, searchDragY]);
 
   const animatedSearchSheetStyle = useAnimatedStyle(() => ({
@@ -300,6 +305,10 @@ export default function CalendarView({
         const h = searchSheetHeightRef.current;
         const dismissThreshold = h > 0 ? h / 3 : 120;
         if (g.dy > dismissThreshold) {
+          // setSearchClosingByDrag(true)를 withTiming 시작 전에 호출해서
+          // exiting={undefined}로 한 번 렌더 → withTiming 끝나면 close.
+          // (콜백에서 동시에 set+close하면 React 배치로 인해 exiting=undefined 렌더가 누락됨)
+          setSearchClosingByDrag(true);
           searchDragY.value = withTiming(
             h > 0 ? h : 600,
             { duration: 180 },
@@ -821,7 +830,8 @@ export default function CalendarView({
           {searchVisible && (
           <Reanimated.View
             entering={SlideInDown.duration(200)}
-            exiting={SlideOutDown.duration(180)}
+            // 드래그-닫기일 땐 exiting을 꺼야 dragY로 보낸 위치에서 바로 사라짐
+            exiting={searchClosingByDrag ? undefined : SlideOutDown.duration(180)}
             onLayout={(e) => {
               searchSheetHeightRef.current = e.nativeEvent.layout.height;
             }}

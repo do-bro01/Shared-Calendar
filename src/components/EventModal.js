@@ -197,10 +197,17 @@ const EventModal = ({
   //   → 시트가 1/3 이상 끌어내려져 보이는 부분이 원래의 2/3 이하가 되면 닫음.
   const dragY = useSharedValue(0);
   const sheetHeightRef = useRef(0);
+  // 드래그로 닫는 중일 땐 SlideOutDown(exiting)을 끈다.
+  // 켜둘 경우 dragY로 이미 화면 밖에 보낸 시트를 Reanimated가 다시 translateY=0으로 되돌린 뒤
+  // 슬라이드 다운을 재생해서 "확 올라왔다가 닫히는" 잔상이 보임.
+  const [closingByDrag, setClosingByDrag] = useState(false);
 
-  // 새로 열릴 때 드래그 위치 초기화 (이전에 닫는 애니메이션으로 sheetHeight까지 갔다면 0으로 복귀)
+  // 새로 열릴 때 드래그 위치/플래그 초기화
   useEffect(() => {
-    if (visible) dragY.value = 0;
+    if (visible) {
+      dragY.value = 0;
+      setClosingByDrag(false);
+    }
   }, [visible, dragY]);
 
   const animatedSheetStyle = useAnimatedStyle(() => ({
@@ -220,7 +227,13 @@ const EventModal = ({
         const h = sheetHeightRef.current;
         const dismissThreshold = h > 0 ? h / 3 : 120;
         if (g.dy > dismissThreshold) {
-          // 시트를 마저 화면 밖까지 내린 뒤 onClose 호출 → dim도 FadeOut 시작
+          // 중요: setClosingByDrag(true)를 withTiming 시작 전에 호출.
+          // 이렇게 해야 React가 exiting={undefined}로 한 번 렌더링한 뒤,
+          // withTiming이 끝나는 시점에 onClose가 visible=false를 트리거하므로
+          // 시트 unmount 시 SlideOutDown이 캡처되지 않는다.
+          // 만약 withTiming 콜백에서 set+close를 같이 호출하면 React가 두 setState를
+          // 배치해서 exiting=undefined 상태로 한 번도 렌더링하지 못한 채 unmount됨.
+          setClosingByDrag(true);
           dragY.value = withTiming(
             h > 0 ? h : 600,
             { duration: 180 },
@@ -731,7 +744,9 @@ const EventModal = ({
         {visible && (
           <Reanimated.View
             entering={SlideInDown.duration(200)}
-            exiting={SlideOutDown.duration(180)}
+            // 드래그-닫기일 땐 이미 dragY로 화면 밖까지 보냈으므로 exiting을 끔
+            // (켜두면 translateY=0 위치에서 슬라이드가 다시 시작돼 "올라왔다 닫히는" 잔상이 보임)
+            exiting={closingByDrag ? undefined : SlideOutDown.duration(180)}
             onLayout={(e) => {
               sheetHeightRef.current = e.nativeEvent.layout.height;
             }}
