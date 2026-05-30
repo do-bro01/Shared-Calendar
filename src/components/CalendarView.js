@@ -704,7 +704,8 @@ export default function CalendarView({
       <View
         style={[
           styles.addButtonWrapper,
-          { bottom: addButtonMarginBottom },
+          // absolute라서 SafeAreaView paddingBottom이 자동 적용되지 않음 → insets.bottom 직접 보정
+          { bottom: addButtonMarginBottom + insets.bottom },
         ]}
         pointerEvents="box-none"
       >
