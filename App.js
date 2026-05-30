@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { StatusBar, Text, TextInput } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { supabase } from "./src/lib/supabaseClient";
 import { UserService } from "./src/services/UserService";
 import ThemeContext, { ThemeProvider } from "./src/context/ThemeContext";
@@ -52,6 +53,7 @@ export default function App() {
   if (loading) return null; // 앱 시작 시 깜빡임 방지
 
   return (
+    <SafeAreaProvider>
     <ThemeProvider>
       <ThemeContext.Consumer>
         {(theme) => (
@@ -77,5 +79,6 @@ export default function App() {
         )}
       </ThemeContext.Consumer>
     </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

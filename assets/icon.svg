@@ -23,13 +23,10 @@
   <g clip-path="url(#bodyClip)">
     <rect x="200" y="272" width="624" height="76" fill="#395fa5"/>
     <g fill="#ffffff">
-      <circle cx="262" cy="310" r="10"/>
-      <circle cx="346" cy="310" r="10"/>
-      <circle cx="429" cy="310" r="10"/>
-      <circle cx="512" cy="310" r="10"/>
-      <circle cx="595" cy="310" r="10"/>
-      <circle cx="678" cy="310" r="10"/>
-      <circle cx="762" cy="310" r="10"/>
+      <circle cx="302" cy="310" r="12"/>
+      <circle cx="442" cy="310" r="12"/>
+      <circle cx="582" cy="310" r="12"/>
+      <circle cx="722" cy="310" r="12"/>
     </g>
   </g>
 
