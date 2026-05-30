@@ -14,6 +14,7 @@ export class PersonalEventService {
     allDay = true,
     startTime = null,
     endTime = null,
+    memo = null,
   }) {
     try {
       const {
@@ -35,6 +36,7 @@ export class PersonalEventService {
             all_day: allDay,
             start_time: allDay ? null : startTime,
             end_time: allDay ? null : endTime,
+            memo,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -68,7 +70,7 @@ export class PersonalEventService {
    */
   static async updatePersonalEvent(
     eventId,
-    { title, date, endDate, dotColor, allDay, startTime, endTime },
+    { title, date, endDate, dotColor, allDay, startTime, endTime, memo },
   ) {
     try {
       const updateData = {
@@ -87,6 +89,11 @@ export class PersonalEventService {
         updateData.all_day = allDay;
         updateData.start_time = allDay ? null : startTime ?? null;
         updateData.end_time = allDay ? null : endTime ?? null;
+      }
+
+      // memo는 호출자가 명시할 때만 갱신 (undefined면 손대지 않음, null이면 비움)
+      if (memo !== undefined) {
+        updateData.memo = memo;
       }
 
       const { error } = await supabase

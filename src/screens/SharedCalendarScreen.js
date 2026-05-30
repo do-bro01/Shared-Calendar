@@ -531,6 +531,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
         allDay: eventData.allDay,
         startTime: eventData.startTime,
         endTime: eventData.endTime,
+        memo: eventData.memo,
       });
 
       // 연결된 개인 일정도 업데이트
@@ -549,6 +550,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
             allDay: eventData.allDay,
             startTime: eventData.startTime,
             endTime: eventData.endTime,
+            memo: eventData.memo,
           }
         );
       }
@@ -572,6 +574,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
         allDay: eventData.allDay,
         startTime: eventData.startTime,
         endTime: eventData.endTime,
+        memo: eventData.memo,
       });
 
       // 그룹 캘린더에 일정 추가 (개인 일정과 연결)
@@ -585,6 +588,7 @@ function SharedCalendarView({ groupId, groupName, onBack }) {
         allDay: eventData.allDay,
         startTime: eventData.startTime,
         endTime: eventData.endTime,
+        memo: eventData.memo,
       });
 
       // 개인 일정에 그룹 일정 ID 연결

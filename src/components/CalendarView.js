@@ -798,6 +798,9 @@ export default function CalendarView({
         visible={searchMounted}
         animationType="none"
         transparent
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        hardwareAccelerated
         onRequestClose={closeSearch}
       >
         <View style={styles.searchOverlay}>

@@ -29,6 +29,7 @@ export class GroupEventService {
             all_day: allDay,
             start_time: allDay ? null : event.startTime ?? null,
             end_time: allDay ? null : event.endTime ?? null,
+            memo: event.memo ?? null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -93,7 +94,7 @@ export class GroupEventService {
    */
   static async updateGroupEvent(
     eventId,
-    { title, date, endDate, dotColor, allDay, startTime, endTime },
+    { title, date, endDate, dotColor, allDay, startTime, endTime, memo },
   ) {
     try {
       const updateData = {
@@ -111,6 +112,10 @@ export class GroupEventService {
         updateData.all_day = allDay;
         updateData.start_time = allDay ? null : startTime ?? null;
         updateData.end_time = allDay ? null : endTime ?? null;
+      }
+
+      if (memo !== undefined) {
+        updateData.memo = memo;
       }
 
       const { error } = await supabase

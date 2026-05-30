@@ -240,6 +240,7 @@ const EventModal = ({
   ).current;
 
   const [title, setTitle] = useState("");
+  const [memo, setMemo] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [groupCalendars, setGroupCalendars] = useState([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
@@ -282,6 +283,7 @@ const EventModal = ({
     if (!visible) return;
     if (editMode && eventToEdit) {
       setTitle(eventToEdit.title || "");
+      setMemo(eventToEdit.memo || "");
       const start = parseDateInput(eventToEdit.date);
       const end = parseDateInput(eventToEdit.endDate || eventToEdit.date);
       // 편집 시 시간 정보 복원
@@ -306,6 +308,7 @@ const EventModal = ({
       setSelectedColor(eventToEdit.dotColor || "#395fa5ff");
     } else {
       setTitle("");
+      setMemo("");
       const d = parseDateInput(defaultDate);
       d.setHours(0, 0, 0, 0);
       setStartDate(new Date(d));
@@ -464,6 +467,7 @@ const EventModal = ({
     const payload = {
       ...(editMode && eventToEdit ? { id: eventToEdit.id } : {}),
       title: title.trim(),
+      memo: memo.trim() ? memo.trim() : null,
       date: dateKey(startDate),
       endDate: dateKey(endDate),
       dotColor: selectedColor,
@@ -689,6 +693,12 @@ const EventModal = ({
       visible={isMounted}
       animationType="none"
       transparent={true}
+      // iOS: 모달 뷰가 처음부터 상태바 아래까지 덮도록 명시 (transparent=true의 기본값이지만
+      // 명시해두면 RN 버전·플랫폼별 기본 동작 차이를 방지)
+      presentationStyle="overFullScreen"
+      // Android: 상태바 영역까지 덮어 dim이 위까지 적용되도록
+      statusBarTranslucent
+      hardwareAccelerated
       onRequestClose={onClose}
     >
       <View
@@ -849,6 +859,40 @@ const EventModal = ({
                   새 컴포넌트 type으로 인식되어 WheelPicker 3개가 매번 remount됨 (날짜 휠 1461개 재생성). */}
               {PickerArea()}
             </View>
+
+            {/* 메모 — 캘린더 리스트에는 노출되지 않고, 추후 RAG 입력으로 사용 */}
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                marginBottom: 10,
+                marginTop: 4,
+                color: palette.label,
+                letterSpacing: 0.3,
+              }}
+            >
+              메모
+            </Text>
+            <TextInput
+              placeholder="이 일정에 대한 메모를 남겨보세요"
+              placeholderTextColor={palette.placeholder}
+              value={memo}
+              onChangeText={setMemo}
+              multiline
+              textAlignVertical="top"
+              style={{
+                fontSize: 14,
+                color: palette.text,
+                backgroundColor: palette.field,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: palette.border,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                minHeight: 80,
+                marginBottom: 18,
+              }}
+            />
 
             {/* 색상 */}
             <Text

@@ -51,6 +51,7 @@ export default function PersonalCalendarScreen() {
         allDay: eventData.allDay,
         startTime: eventData.startTime,
         endTime: eventData.endTime,
+        memo: eventData.memo,
       });
 
       // 선택된 공유 캘린더들에 일정 추가하고 연결
@@ -66,6 +67,7 @@ export default function PersonalCalendarScreen() {
             allDay: eventData.allDay,
             startTime: eventData.startTime,
             endTime: eventData.endTime,
+            memo: eventData.memo,
           });
           linkedGroupEventIds.push(groupEventId);
         }
@@ -108,6 +110,7 @@ export default function PersonalCalendarScreen() {
         allDay: eventData.allDay,
         startTime: eventData.startTime,
         endTime: eventData.endTime,
+        memo: eventData.memo,
       });
 
       // 2. 기존 그룹 일정들의 groupCalendarId 매핑 생성
@@ -144,6 +147,7 @@ export default function PersonalCalendarScreen() {
             allDay: eventData.allDay,
             startTime: eventData.startTime,
             endTime: eventData.endTime,
+            memo: eventData.memo,
           });
           updatedLinkedGroupEventIds.push(groupEventId);
         } else {
@@ -158,6 +162,7 @@ export default function PersonalCalendarScreen() {
             allDay: eventData.allDay,
             startTime: eventData.startTime,
             endTime: eventData.endTime,
+            memo: eventData.memo,
           });
           updatedLinkedGroupEventIds.push(groupEventId);
         }
