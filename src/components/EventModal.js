@@ -722,19 +722,28 @@ const EventModal = ({
           <Reanimated.View
             entering={SlideInDown.duration(200)}
             exiting={SlideOutDown.duration(180)}
-            style={{
-              backgroundColor: palette.surface,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              paddingHorizontal: 20,
-              paddingTop: 10,
-              paddingBottom: 20,
-              // 콘텐츠 크기와 무관하게 한 번에 끝까지 올라오고, 안에서 요소가 재배치되도록 고정 높이
-              height: "92%",
+            onLayout={(e) => {
+              sheetHeightRef.current = e.nativeEvent.layout.height;
             }}
+            style={[
+              {
+                backgroundColor: palette.surface,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                paddingHorizontal: 20,
+                paddingTop: 10,
+                paddingBottom: 20,
+                // 콘텐츠 크기와 무관하게 한 번에 끝까지 올라오고, 안에서 요소가 재배치되도록 고정 높이
+                height: "92%",
+              },
+              animatedSheetStyle,
+            ]}
           >
-            {/* 드래그 핸들 */}
-          <View style={{ alignItems: "center", marginBottom: 6 }}>
+            {/* 드래그 핸들 — 잡고 아래로 끌어내려 시트 dismiss */}
+          <View
+            style={{ alignItems: "center", paddingVertical: 8, marginBottom: 6 }}
+            {...panResponder.panHandlers}
+          >
             <View
               style={{
                 width: 40,

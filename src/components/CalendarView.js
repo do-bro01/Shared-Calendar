@@ -30,6 +30,11 @@ import Reanimated, {
   LinearTransition,
   SlideInDown,
   SlideOutDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -271,6 +276,47 @@ export default function CalendarView({
       return () => clearTimeout(t);
     }
   }, [searchVisible, searchMounted]);
+
+  // 검색 시트 핸들 드래그로 닫기: 시트 1/3 이상 끌어내리고 손 떼면 닫음.
+  const searchDragY = useSharedValue(0);
+  const searchSheetHeightRef = useRef(0);
+
+  useEffect(() => {
+    if (searchVisible) searchDragY.value = 0;
+  }, [searchVisible, searchDragY]);
+
+  const animatedSearchSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: searchDragY.value }],
+  }));
+
+  const searchPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 3,
+      onPanResponderMove: (_, g) => {
+        searchDragY.value = g.dy > 0 ? g.dy : 0;
+      },
+      onPanResponderRelease: (_, g) => {
+        const h = searchSheetHeightRef.current;
+        const dismissThreshold = h > 0 ? h / 3 : 120;
+        if (g.dy > dismissThreshold) {
+          searchDragY.value = withTiming(
+            h > 0 ? h : 600,
+            { duration: 180 },
+            (finished) => {
+              if (finished) runOnJS(closeSearch)();
+            },
+          );
+        } else {
+          searchDragY.value = withSpring(0, { damping: 22, stiffness: 240 });
+        }
+      },
+      onPanResponderTerminate: () => {
+        searchDragY.value = withSpring(0, { damping: 22, stiffness: 240 });
+      },
+    }),
+  ).current;
+
   const theme = useTheme();
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
@@ -773,16 +819,23 @@ export default function CalendarView({
           <Reanimated.View
             entering={SlideInDown.duration(200)}
             exiting={SlideOutDown.duration(180)}
+            onLayout={(e) => {
+              searchSheetHeightRef.current = e.nativeEvent.layout.height;
+            }}
             style={[
               styles.searchSheet,
               {
                 backgroundColor: colors.background,
                 paddingBottom: Math.max(Spacing.lg, insets.bottom),
               },
+              animatedSearchSheetStyle,
             ]}
           >
-            {/* 드래그 핸들 */}
-            <View style={styles.sheetHandleWrap}>
+            {/* 드래그 핸들 — 잡고 아래로 끌어내려 시트 dismiss */}
+            <View
+              style={styles.sheetHandleWrap}
+              {...searchPanResponder.panHandlers}
+            >
               <View
                 style={[styles.sheetHandle, { backgroundColor: colors.border }]}
               />
@@ -1109,6 +1162,7 @@ const styles = StyleSheet.create({
   },
   sheetHandleWrap: {
     alignItems: "center",
+    paddingVertical: 8,
     marginBottom: Spacing.xs,
   },
   sheetHandle: {
