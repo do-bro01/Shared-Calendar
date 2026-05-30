@@ -42,8 +42,7 @@ const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
 const GAP_ABOVE_TAB_BAR = 10;
 
 // 일정 항목 추가/삭제/이동에 부드러운 전환을 적용하기 위한 Animated TouchableOpacity
-const AnimatedTouchable =
-  Reanimated.createAnimatedComponent(TouchableOpacity);
+const AnimatedTouchable = Reanimated.createAnimatedComponent(TouchableOpacity);
 const EVENT_ITEM_ENTERING = FadeIn.duration(180);
 const EVENT_ITEM_EXITING = FadeOut.duration(120);
 const EVENT_ITEM_LAYOUT = LinearTransition.springify()
@@ -173,7 +172,7 @@ const MonthPager = forwardRef(function MonthPager(
       // 가로 의도일 때만 가로 페이징을 가로챔 → 세로 스크롤은 바깥 ScrollView에 양보
       onMoveShouldSetPanResponder: (_, g) =>
         !animatingRef.current &&
-        Math.abs(g.dx) > 9 &&
+        Math.abs(g.dx) > 6 &&
         Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
       onPanResponderGrant: () => {
         translateX.stopAnimation();
@@ -185,8 +184,10 @@ const MonthPager = forwardRef(function MonthPager(
         const w = widthRef.current;
         if (w === 0) return;
         const threshold = Math.min(48, w * 0.2);
-        if (g.dx <= -threshold) animateAndChange(-2 * w, 1); // 다음 달
-        else if (g.dx >= threshold) animateAndChange(0, -1); // 이전 달
+        if (g.dx <= -threshold)
+          animateAndChange(-2 * w, 1); // 다음 달
+        else if (g.dx >= threshold)
+          animateAndChange(0, -1); // 이전 달
         else animateAndChange(-w, 0); // 임계값 미달 → 원위치
       },
       onPanResponderTerminate: () => {
@@ -765,7 +766,10 @@ export default function CalendarView({
                   </TouchableOpacity>
                 )}
               </View>
-              <TouchableOpacity onPress={closeSearch} style={styles.searchCancel}>
+              <TouchableOpacity
+                onPress={closeSearch}
+                style={styles.searchCancel}
+              >
                 <Text style={[styles.searchCancelText, { color: colors.tint }]}>
                   취소
                 </Text>
