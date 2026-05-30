@@ -21,7 +21,7 @@ import {
   Animated,
   PanResponder,
   Platform,
-  Modal,
+  BackHandler,
   Pressable,
 } from "react-native";
 import Reanimated, {
@@ -43,6 +43,7 @@ import EventModal from "./EventModal";
 import Button from "./Button";
 import { SearchIcon, ReturnIcon } from "./icons";
 import { useTheme } from "../context/ThemeContext";
+import { Portal } from "../context/OverlayContext";
 import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 
 // MainTabNavigator의 tabBarStyle: bottom 12 + height 72
@@ -264,9 +265,9 @@ export default function CalendarView({
   const [editingEvent, setEditingEvent] = useState(null);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  // 검색 dim/시트 페이드·슬라이드 아웃이 끝날 때까지 Modal을 유지하기 위한 마운트 상태.
-  // searchVisible=true → Modal mount → dim FadeIn + 시트 SlideInDown 동시에
-  // searchVisible=false → dim/시트 unmount(페이드/슬라이드 아웃) → 220ms 뒤 Modal도 unmount
+  // 검색 dim/시트 페이드·슬라이드 아웃이 끝날 때까지 오버레이 Portal을 유지하기 위한 마운트 상태.
+  // searchVisible=true → searchMounted=true → Portal 마운트 → dim FadeIn + 시트 SlideInDown 동시에
+  // searchVisible=false → dim/시트 unmount(페이드/슬라이드 아웃) → 220ms 뒤 Portal도 unmount
   const [searchMounted, setSearchMounted] = useState(false);
   useEffect(() => {
     if (searchVisible) {
@@ -487,10 +488,20 @@ export default function CalendarView({
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [events, searchQuery]);
 
-  const closeSearch = () => {
+  const closeSearch = useCallback(() => {
     setSearchVisible(false);
     setSearchQuery("");
-  };
+  }, []);
+
+  // 안드로이드 하드웨어 백 버튼 → 검색 닫기. (Modal의 onRequestClose 대체)
+  useEffect(() => {
+    if (!searchVisible || Platform.OS !== "android") return undefined;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      closeSearch();
+      return true;
+    });
+    return () => sub.remove();
+  }, [searchVisible, closeSearch]);
 
   // 검색 결과 선택 → 해당 날짜 선택 + 그 달로 캘린더 이동
   const jumpToEvent = (ev) => {
@@ -803,16 +814,14 @@ export default function CalendarView({
         }
       />
 
-      <Modal
-        visible={searchMounted}
-        animationType="none"
-        transparent
-        presentationStyle="overFullScreen"
-        statusBarTranslucent
-        hardwareAccelerated
-        onRequestClose={closeSearch}
-      >
-        <View style={styles.searchOverlay}>
+      {searchMounted && (
+      // App.js OverlayHost 최상단 레이어로 텔레포트. native Modal을 쓰지 않으므로 iOS에서
+      // 슬라이드 중에도 dim이 상태바·탭바를 포함한 전 화면을 처음부터 덮는다.
+      <Portal>
+        <View
+          style={styles.searchOverlay}
+          pointerEvents={searchVisible ? "auto" : "none"}
+        >
           {/* dim은 시트와 동시에 페이드 인/아웃 → 시트가 올라오면서 점점 어두워지고, 내려가면서 점점 밝아짐 */}
           {searchVisible && (
             <Reanimated.View
@@ -990,7 +999,8 @@ export default function CalendarView({
           </Reanimated.View>
           )}
         </View>
-      </Modal>
+      </Portal>
+      )}
     </SafeAreaView>
   );
 }
@@ -1155,7 +1165,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   searchOverlay: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: "flex-end",
   },
   searchDim: {

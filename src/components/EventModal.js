@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import {
-  Modal,
+  BackHandler,
   View,
   Text,
   TextInput,
@@ -33,6 +33,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { GroupCalendarService } from "../services/GroupCalendarService";
 import { useTheme } from "../context/ThemeContext";
+import { Portal } from "../context/OverlayContext";
 import WheelPicker, {
   WHEEL_ITEM_HEIGHT,
   WHEEL_VISIBLE_COUNT,
@@ -178,9 +179,9 @@ const EventModal = ({
     pillBorderOff: isDark ? "#5a5e68" : "#aab0bb",
   };
 
-  // 시트와 dim의 페이드/슬라이드 아웃이 끝날 때까지 Modal을 유지하기 위한 마운트 상태.
-  // visible=true → isMounted=true → Modal mount → dim FadeIn + 시트 SlideInDown 동시에
-  // visible=false → dim/시트 unmount(페이드/슬라이드 아웃) → 220ms 뒤 Modal도 unmount
+  // 시트와 dim의 페이드/슬라이드 아웃이 끝날 때까지 오버레이를 유지하기 위한 마운트 상태.
+  // visible=true → isMounted=true → 오버레이 마운트 → dim FadeIn + 시트 SlideInDown 동시에
+  // visible=false → dim/시트 unmount(페이드/슬라이드 아웃) → 220ms 뒤 오버레이도 unmount
   const [isMounted, setIsMounted] = useState(visible);
   useEffect(() => {
     if (visible) {
@@ -190,6 +191,16 @@ const EventModal = ({
       return () => clearTimeout(t);
     }
   }, [visible, isMounted]);
+
+  // 안드로이드 하드웨어 백 버튼 → 닫기. (Modal의 onRequestClose 대체)
+  useEffect(() => {
+    if (!visible || Platform.OS !== "android") return undefined;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
 
   // 핸들 드래그로 시트 내려서 닫기.
   // dragY: 사용자가 핸들을 아래로 끌어내린 거리(px). transform.translateY로 시트에 적용.
@@ -701,22 +712,23 @@ const EventModal = ({
     );
   };
 
+  if (!isMounted) return null;
+
   return (
-    <Modal
-      visible={isMounted}
-      animationType="none"
-      transparent={true}
-      // iOS: 모달 뷰가 처음부터 상태바 아래까지 덮도록 명시 (transparent=true의 기본값이지만
-      // 명시해두면 RN 버전·플랫폼별 기본 동작 차이를 방지)
-      presentationStyle="overFullScreen"
-      // Android: 상태바 영역까지 덮어 dim이 위까지 적용되도록
-      statusBarTranslucent
-      hardwareAccelerated
-      onRequestClose={onClose}
-    >
+    // Portal로 App.js의 OverlayHost 최상단 레이어에 텔레포트해서 그린다.
+    // → 네이티브 Modal을 안 쓰므로 iOS Modal의 "슬라이드 중에는 상태바 영역까지 풀스크린이
+    //   아님" 문제가 사라지고, 상태바/하단 탭바를 포함한 전 화면이 처음부터 dim으로 덮인다.
+    <Portal>
       <View
+        // pointerEvents: visible 동안만 입력 가로채기 (FadeOut 잔여 시간엔 통과시켜
+        // 사용자가 빠르게 다음 액션을 할 수 있게 함)
+        pointerEvents={visible ? "auto" : "none"}
         style={{
-          flex: 1,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           justifyContent: "flex-end",
         }}
       >
@@ -1137,7 +1149,7 @@ const EventModal = ({
           </Reanimated.View>
         )}
       </View>
-    </Modal>
+    </Portal>
   );
 };
 

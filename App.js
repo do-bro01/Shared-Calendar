@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { supabase } from "./src/lib/supabaseClient";
 import { UserService } from "./src/services/UserService";
 import ThemeContext, { ThemeProvider } from "./src/context/ThemeContext";
+import { OverlayHost } from "./src/context/OverlayContext";
 import { Typography } from "./constants/theme";
 
 import LoginScreen from "./src/screens/LoginScreen";
@@ -54,7 +55,7 @@ export default function App() {
     <ThemeProvider>
       <ThemeContext.Consumer>
         {(theme) => (
-          <>
+          <OverlayHost>
             <StatusBar
               barStyle={
                 theme.mode === "dark" ? "light-content" : "dark-content"
@@ -72,7 +73,7 @@ export default function App() {
                 )}
               </Stack.Navigator>
             </NavigationContainer>
-          </>
+          </OverlayHost>
         )}
       </ThemeContext.Consumer>
     </ThemeProvider>

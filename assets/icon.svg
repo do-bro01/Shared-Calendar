@@ -4,33 +4,54 @@
       <stop offset="0%" stop-color="#5a82d1"/>
       <stop offset="100%" stop-color="#395fa5"/>
     </linearGradient>
+    <clipPath id="bodyClip">
+      <rect x="148" y="228" width="728" height="684" rx="80" ry="80"/>
+    </clipPath>
   </defs>
 
-  <!-- 둥근 사각형 배경 (iOS squircle 느낌) -->
+  <!-- 둥근 사각형 배경 (iOS squircle) -->
   <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230" fill="url(#bg)"/>
 
-  <!-- "S" - 자기교차 없는 부드러운 곡선 -->
-  <path d="M 440 345
-           C 440 280, 320 270, 245 295
-           C 165 325, 165 410, 240 445
-           C 310 475, 380 485, 440 525
-           C 510 570, 510 660, 415 685
-           C 315 715, 200 695, 175 650"
-        fill="none"
-        stroke="#ffffff"
-        stroke-width="105"
-        stroke-linecap="round"
-        stroke-linejoin="round"/>
+  <!-- 달력 상단 바인딩 링 (두 개) -->
+  <rect x="346" y="156" width="46" height="152" rx="23" fill="#ffffff"/>
+  <rect x="632" y="156" width="46" height="152" rx="23" fill="#ffffff"/>
 
-  <!-- "C" - 동글한 호 -->
-  <path d="M 845 385
-           C 795 320, 685 305, 600 350
-           C 510 400, 490 515, 540 600
-           C 590 685, 700 705, 790 675
-           C 820 665, 845 645, 860 620"
-        fill="none"
-        stroke="#ffffff"
-        stroke-width="105"
-        stroke-linecap="round"
-        stroke-linejoin="round"/>
+  <!-- 달력 본체 (흰색 둥근 사각형) -->
+  <rect x="148" y="228" width="728" height="684" rx="80" ry="80" fill="#ffffff"/>
+
+  <!-- 상단 헤더 띠 + 요일 점 7개 (본체 라운드에 맞게 클립) -->
+  <g clip-path="url(#bodyClip)">
+    <rect x="148" y="228" width="728" height="88" fill="#395fa5"/>
+    <g fill="#ffffff">
+      <circle cx="218" cy="272" r="11"/>
+      <circle cx="316" cy="272" r="11"/>
+      <circle cx="414" cy="272" r="11"/>
+      <circle cx="512" cy="272" r="11"/>
+      <circle cx="610" cy="272" r="11"/>
+      <circle cx="708" cy="272" r="11"/>
+      <circle cx="806" cy="272" r="11"/>
+    </g>
+  </g>
+
+  <!-- SC 로고 (본체 중앙) -->
+  <g transform="translate(512 616) scale(0.56) translate(-517.5 -495)"
+     fill="none"
+     stroke="#395fa5"
+     stroke-width="105"
+     stroke-linecap="round"
+     stroke-linejoin="round">
+    <!-- S -->
+    <path d="M 440 345
+             C 440 280, 320 270, 245 295
+             C 165 325, 165 410, 240 445
+             C 310 475, 380 485, 440 525
+             C 510 570, 510 660, 415 685
+             C 315 715, 200 695, 175 650"/>
+    <!-- C -->
+    <path d="M 845 385
+             C 795 320, 685 305, 600 350
+             C 510 400, 490 515, 540 600
+             C 590 685, 700 705, 790 675
+             C 820 665, 845 645, 860 620"/>
+  </g>
 </svg>
