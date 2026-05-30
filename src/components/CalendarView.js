@@ -1,5 +1,13 @@
 // SC/src/components/CalendarView.js
-import React, { useState, useMemo, useRef, useLayoutEffect } from "react";
+import React, {
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  useLayoutEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   View,
   Text,
@@ -15,18 +23,32 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import Reanimated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { Calendar } from "react-native-calendars";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import EventModal from "./EventModal";
 import Button from "./Button";
-import { SearchIcon } from "./icons";
+import { SearchIcon, ReturnIcon } from "./icons";
 import { useTheme } from "../context/ThemeContext";
 import { Typography, Spacing, Radius, Shadow } from "../../constants/theme";
 
 // MainTabNavigator의 tabBarStyle: bottom 12 + height 72
 const TAB_BAR_TOP_FROM_SCREEN_BOTTOM = 12 + 72;
 const GAP_ABOVE_TAB_BAR = 10;
+
+// 일정 항목 추가/삭제/이동에 부드러운 전환을 적용하기 위한 Animated TouchableOpacity
+const AnimatedTouchable =
+  Reanimated.createAnimatedComponent(TouchableOpacity);
+const EVENT_ITEM_ENTERING = FadeIn.duration(180);
+const EVENT_ITEM_EXITING = FadeOut.duration(120);
+const EVENT_ITEM_LAYOUT = LinearTransition.springify()
+  .damping(18)
+  .stiffness(180);
 
 const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const formatGreetingDate = (date) => {
@@ -64,7 +86,10 @@ const toMonthString = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 const SWIPE_DURATION = 220;
 
-function MonthPager({ month, onChangeMonth, renderMonth }) {
+const MonthPager = forwardRef(function MonthPager(
+  { month, onChangeMonth, renderMonth },
+  ref,
+) {
   const [width, setWidth] = useState(0);
   const widthRef = useRef(0);
   const translateX = useRef(new Animated.Value(0)).current;
@@ -73,6 +98,8 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
   monthRef.current = month;
   const onChangeRef = useRef(onChangeMonth);
   onChangeRef.current = onChangeMonth;
+  // Today 점프 중 표시할 목표 달 (거리와 무관하게 단 한 장만 슬라이드해서 도착)
+  const [jump, setJump] = useState(null); // { target: Date, dir: -1 | 1 } | null
 
   const setWidthSafe = (w) => {
     if (w > 0 && w !== widthRef.current) {
@@ -105,6 +132,41 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
 
   const goPrev = () => animateAndChange(0, -1);
   const goNext = () => animateAndChange(-2 * widthRef.current, 1);
+
+  // 임의의 달로 한 번에 슬라이드. 몇 달 차이든 목표 달을 인접 패널에 끼워 넣고
+  // 단 한 번의 스와이프로 도착시킨다 (중간 달을 거치지 않음).
+  const goToMonth = useCallback(
+    (target) => {
+      const w = widthRef.current;
+      const cur = monthRef.current;
+      const diff =
+        (target.getFullYear() - cur.getFullYear()) * 12 +
+        (target.getMonth() - cur.getMonth());
+      if (diff === 0) return;
+      if (w === 0 || animatingRef.current) {
+        onChangeRef.current?.(target);
+        return;
+      }
+      const dir = diff < 0 ? -1 : 1;
+      animatingRef.current = true;
+      setJump({ target, dir });
+      // 목표 패널이 먼저 렌더된 다음 프레임에 애니메이션 시작 (한 프레임 깜빡임 방지)
+      requestAnimationFrame(() => {
+        Animated.timing(translateX, {
+          toValue: dir < 0 ? 0 : -2 * w,
+          duration: SWIPE_DURATION,
+          useNativeDriver: false,
+        }).start(({ finished }) => {
+          animatingRef.current = false;
+          setJump(null);
+          if (finished) onChangeRef.current?.(target);
+        });
+      });
+    },
+    [translateX],
+  );
+
+  useImperativeHandle(ref, () => ({ goToMonth }), [goToMonth]);
 
   const pan = useRef(
     PanResponder.create({
@@ -139,6 +201,13 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
 
   const prevM = addMonthsDate(month, -1);
   const nextM = addMonthsDate(month, 1);
+  // 점프 중에는 진행 방향 쪽 패널을 목표 달로 교체 → 한 번의 슬라이드로 목표에 도착
+  const panels =
+    jump?.dir === -1
+      ? [jump.target, month, nextM]
+      : jump?.dir === 1
+        ? [prevM, month, jump.target]
+        : [prevM, month, nextM];
 
   return (
     <View
@@ -157,7 +226,7 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
           }}
           {...pan.panHandlers}
         >
-          {[prevM, month, nextM].map((m) => (
+          {panels.map((m) => (
             <View key={toMonthString(m)} style={{ width }}>
               {renderMonth(m, goPrev, goNext)}
             </View>
@@ -166,7 +235,7 @@ function MonthPager({ month, onChangeMonth, renderMonth }) {
       )}
     </View>
   );
-}
+});
 
 export default function CalendarView({
   selectedDate,
@@ -187,6 +256,7 @@ export default function CalendarView({
   const theme = useTheme();
   const colors = theme.colors;
   const insets = useSafeAreaInsets();
+  const pagerRef = useRef(null);
 
   // 캘린더에 보여줄 "월"을 상태로 관리(스크롤 위치가 아님). 초기값 = selectedDate(오늘)의 달.
   // 스와이프/화살표는 이 상태를 ±1달 바꿀 뿐 → 모바일 위치 버그 없음. [[MonthPager]]
@@ -199,6 +269,13 @@ export default function CalendarView({
       : firstOfMonthDate(new Date());
     return m;
   });
+
+  // 오늘이 속한 달. 지금 보고 있는 달이 오늘 달이면 Today 버튼을 숨긴다.
+  const todayMonth = firstOfMonthDate(new Date());
+  const isViewingTodayMonth =
+    displayMonth.getFullYear() === todayMonth.getFullYear() &&
+    displayMonth.getMonth() === todayMonth.getMonth();
+  const goToday = () => pagerRef.current?.goToMonth(todayMonth);
 
   const addButtonMarginBottom = Math.max(
     8,
@@ -351,19 +428,33 @@ export default function CalendarView({
   };
 
   const renderHeader = () => {
-    // 브랜드 컬러(#395fa5) 톤의 부드러운 원형 버튼 — 라이트/다크 모두 자연스럽게.
-    const searchBtnBg =
-      theme.mode === "dark" ? "rgba(57,95,165,0.22)" : "rgba(57,95,165,0.10)";
-    const searchButton = (
-      <TouchableOpacity
-        onPress={() => setSearchVisible(true)}
-        style={[styles.searchButton, { backgroundColor: searchBtnBg }]}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel="일정 검색"
-      >
-        <SearchIcon size={20} color={colors.tint} />
-      </TouchableOpacity>
+    // Today 버튼은 오늘 달이 아닐 때만 노출(보일 때만 동작).
+    const headerActions = (
+      <View style={styles.headerActions}>
+        {!isViewingTodayMonth && (
+          <TouchableOpacity
+            onPress={goToday}
+            style={[styles.todayButton, { borderColor: colors.muted }]}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="오늘 달로 이동"
+          >
+            <ReturnIcon size={15} color={colors.muted} />
+            <Text style={[styles.todayText, { color: colors.muted }]}>
+              Today
+            </Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          onPress={() => setSearchVisible(true)}
+          style={styles.searchButton}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="일정 검색"
+        >
+          <SearchIcon size={19} color={colors.muted} />
+        </TouchableOpacity>
+      </View>
     );
 
     if (useGreeting && greetingMeta) {
@@ -380,27 +471,26 @@ export default function CalendarView({
               오늘 일정 {greetingMeta.count}개 · {greetingMeta.dateLabel}
             </Text>
           </View>
-          {searchButton}
+          {headerActions}
         </View>
       );
     }
 
-    // title이 비어 있어도(공유 달력) 검색 버튼은 우상단에 노출
+    // title이 비어 있어도(공유 달력) 액션 버튼은 우상단에 노출
     if (!title) {
       return (
         <View style={[styles.headerRow, styles.searchOnlyRow]}>
-          {searchButton}
+          {headerActions}
         </View>
       );
     }
 
     return (
       <View style={[styles.headerRow, styles.titleHeaderRow]}>
-        <View style={styles.headerSide} />
         <Text style={[styles.headerTitleCentered, { color: colors.text }]}>
           {title}
         </Text>
-        <View style={styles.headerSide}>{searchButton}</View>
+        {headerActions}
       </View>
     );
   };
@@ -430,6 +520,7 @@ export default function CalendarView({
           <MonthPager
             // 테마 변경 시 Calendar는 스타일을 마운트 시 한 번만 계산하므로(useRef) 전체 리마운트로 재테마.
             key={theme.mode}
+            ref={pagerRef}
             month={displayMonth}
             onChangeMonth={setDisplayMonth}
             renderMonth={(monthDate, goPrev, goNext) => (
@@ -484,7 +575,12 @@ export default function CalendarView({
             const endDate = ev.endDate || ev.date;
             return selectedDate >= startDate && selectedDate <= endDate;
           }).length === 0 ? (
-            <View style={styles.emptyState}>
+            <Reanimated.View
+              style={styles.emptyState}
+              entering={EVENT_ITEM_ENTERING}
+              exiting={EVENT_ITEM_EXITING}
+              layout={EVENT_ITEM_LAYOUT}
+            >
               <MaterialIcons
                 name="event-available"
                 size={40}
@@ -497,7 +593,7 @@ export default function CalendarView({
               <Text style={[styles.emptyHint, { color: colors.muted }]}>
                 아래 버튼으로 새 일정을 추가해보세요
               </Text>
-            </View>
+            </Reanimated.View>
           ) : (
             events
               .filter((ev) => {
@@ -514,7 +610,7 @@ export default function CalendarView({
                   : ev.dotColor || colors.tint;
 
                 return (
-                  <TouchableOpacity
+                  <AnimatedTouchable
                     key={ev.id}
                     style={[
                       styles.eventItem,
@@ -525,6 +621,9 @@ export default function CalendarView({
                     ]}
                     onPress={() => handleEventPress(ev)}
                     activeOpacity={0.7}
+                    entering={EVENT_ITEM_ENTERING}
+                    exiting={EVENT_ITEM_EXITING}
+                    layout={EVENT_ITEM_LAYOUT}
                   >
                     <View
                       style={[
@@ -558,7 +657,7 @@ export default function CalendarView({
                         {dateText}
                       </Text>
                     </View>
-                  </TouchableOpacity>
+                  </AnimatedTouchable>
                 );
               })
           )}
@@ -898,19 +997,34 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     marginBottom: Spacing.lg,
   },
-  headerSide: {
-    width: 40,
-    alignItems: "flex-end",
-  },
   headerTitleCentered: {
     flex: 1,
     fontSize: Typography.title1,
     fontWeight: Typography.weights.bold,
     textAlign: "center",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  todayButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: Radius.full,
+    borderWidth: 1.2,
+    backgroundColor: "transparent",
+  },
+  todayText: {
+    fontSize: Typography.footnote,
+    fontWeight: Typography.weights.semibold,
+  },
   searchButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",

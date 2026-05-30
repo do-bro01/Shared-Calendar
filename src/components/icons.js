@@ -931,20 +931,30 @@ export function EventAvailableIcon({ size = 20, color = "#000", style }) {
 // 🔍 돋보기 (검색) — 렌즈(원) + 손잡이(대각선 막대)
 export function SearchIcon({ size = 20, color = "#000", style }) {
   const stroke = Math.max(1.6, size / 9);
-  const lens = size * 0.56; // 렌즈 지름
-  const cx = size * 0.42;
-  const cy = size * 0.42;
-  // 렌즈 우하단 가장자리(45°)에서 우하단 모서리까지 손잡이를 잇는다
-  const edge = (lens / 2) * 0.7071;
-  const hx0 = cx + edge;
-  const hy0 = cy + edge;
-  const hx1 = size * 0.86;
-  const hy1 = size * 0.86;
+  const lens = size * 0.64; // 렌즈 지름 (좀 더 큰 원)
+  const cx = size * 0.40;
+  const cy = size * 0.40;
+  // 손잡이 시작점을 렌즈 테두리 두께의 한가운데로 → 둥근 끝이 테두리 안에 들어가 자연스럽게 합쳐짐.
+  // (렌즈 외곽 반지름 lens/2, 내부 반지름 lens/2 - stroke. 그 가운데 = lens/2 - stroke/2)
+  const startDist = lens / 2 - stroke / 2;
+  const hx0 = cx + startDist * 0.7071;
+  const hy0 = cy + startDist * 0.7071;
+  const hx1 = size * 0.82; // 손잡이 먼 끝 (짧게)
+  const hy1 = size * 0.82;
   const handleLen = Math.hypot(hx1 - hx0, hy1 - hy0);
 
   return (
     <View style={[{ width: size, height: size }, style]}>
-      {/* 렌즈 */}
+      {/* 손잡이 (먼저 그려서 렌즈 테두리가 둥근 끝을 덮도록) */}
+      <Stroke
+        cx={(hx0 + hx1) / 2}
+        cy={(hy0 + hy1) / 2}
+        length={handleLen}
+        thickness={stroke}
+        color={color}
+        rotate={45}
+      />
+      {/* 렌즈 (위에 덮어서 손잡이 둥근 끝을 가림) */}
       <View
         style={{
           position: "absolute",
@@ -957,12 +967,43 @@ export function SearchIcon({ size = 20, color = "#000", style }) {
           borderColor: color,
         }}
       />
-      {/* 손잡이 */}
+    </View>
+  );
+}
+
+// ↩ 되돌리기 (Today로 돌아가기) — 가로 윗선에서 우측이 매끄러운 1/4 원으로 휘어 내려오고 좌측에 화살촉
+export function ReturnIcon({ size = 20, color = "#000", style }) {
+  const t = Math.max(1.8, size / 9);
+  // 곡선 반지름 = 높이 → 직선 세로부 없이 매끈한 swoop
+  return (
+    <View style={[{ width: size, height: size }, style]}>
+      <View
+        style={{
+          position: "absolute",
+          left: size * 0.24,
+          top: size * 0.36,
+          width: size * 0.54,
+          height: size * 0.24,
+          borderColor: color,
+          borderTopWidth: t,
+          borderRightWidth: t,
+          borderTopRightRadius: size * 0.24,
+        }}
+      />
+      {/* 화살촉 (가로선 좌측 끝에 결합) */}
       <Stroke
-        cx={(hx0 + hx1) / 2}
-        cy={(hy0 + hy1) / 2}
-        length={handleLen}
-        thickness={stroke}
+        cx={size * 0.325}
+        cy={size * 0.275}
+        length={size * 0.24}
+        thickness={t}
+        color={color}
+        rotate={-45}
+      />
+      <Stroke
+        cx={size * 0.325}
+        cy={size * 0.445}
+        length={size * 0.24}
+        thickness={t}
         color={color}
         rotate={45}
       />
@@ -974,6 +1015,7 @@ export default {
   CalendarIcon,
   AddIcon,
   SearchIcon,
+  ReturnIcon,
   CheckIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
