@@ -15,12 +15,18 @@ import {
   ScrollView,
   Alert,
   Pressable,
+  PanResponder,
 } from "react-native";
 import Reanimated, {
   FadeIn,
   FadeOut,
   SlideInDown,
   SlideOutDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import Button from "./Button";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -184,6 +190,54 @@ const EventModal = ({
       return () => clearTimeout(t);
     }
   }, [visible, isMounted]);
+
+  // 핸들 드래그로 시트 내려서 닫기.
+  // dragY: 사용자가 핸들을 아래로 끌어내린 거리(px). transform.translateY로 시트에 적용.
+  // sheetHeightRef: onLayout으로 측정한 시트 실제 높이. 임계점 = sheetHeight / 3
+  //   → 시트가 1/3 이상 끌어내려져 보이는 부분이 원래의 2/3 이하가 되면 닫음.
+  const dragY = useSharedValue(0);
+  const sheetHeightRef = useRef(0);
+
+  // 새로 열릴 때 드래그 위치 초기화 (이전에 닫는 애니메이션으로 sheetHeight까지 갔다면 0으로 복귀)
+  useEffect(() => {
+    if (visible) dragY.value = 0;
+  }, [visible, dragY]);
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dragY.value }],
+  }));
+
+  const panResponder = useRef(
+    PanResponder.create({
+      // 핸들 영역에서 시작된 제스처 → 항상 잡음
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 3,
+      onPanResponderMove: (_, g) => {
+        // 아래쪽 드래그만 반영 (위로 끌어올리는 건 0으로 고정)
+        dragY.value = g.dy > 0 ? g.dy : 0;
+      },
+      onPanResponderRelease: (_, g) => {
+        const h = sheetHeightRef.current;
+        const dismissThreshold = h > 0 ? h / 3 : 120;
+        if (g.dy > dismissThreshold) {
+          // 시트를 마저 화면 밖까지 내린 뒤 onClose 호출 → dim도 FadeOut 시작
+          dragY.value = withTiming(
+            h > 0 ? h : 600,
+            { duration: 180 },
+            (finished) => {
+              if (finished) runOnJS(onClose)();
+            },
+          );
+        } else {
+          // 원래 위치로 스프링 복귀
+          dragY.value = withSpring(0, { damping: 22, stiffness: 240 });
+        }
+      },
+      onPanResponderTerminate: () => {
+        dragY.value = withSpring(0, { damping: 22, stiffness: 240 });
+      },
+    }),
+  ).current;
 
   const [title, setTitle] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);

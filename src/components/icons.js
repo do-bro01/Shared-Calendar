@@ -976,18 +976,18 @@ export function SearchIcon({ size = 20, color = "#000", style }) {
 // viewBox y를 8만큼 내려 아이콘 컨텐츠가 박스 상단에 더 가깝게 위치하도록 보정.
 export function ReturnIcon({ size = 20, color = "#000", style }) {
   return (
-    <Svg width={size} height={size} viewBox="0 8 64 64" fill="none" style={style}>
+    <Svg width={size} height={size} viewBox="0 11 64 64" fill="none" style={style}>
       <Path
         d="M24 16 L10 30 L24 44"
         stroke={color}
-        strokeWidth={8}
+        strokeWidth={7.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
         d="M12 30 H40 C52 30 58 37 58 46 C58 55 52 62 40 62 H30"
         stroke={color}
-        strokeWidth={8}
+        strokeWidth={7.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
