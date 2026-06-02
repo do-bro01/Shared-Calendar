@@ -47,7 +47,7 @@ if (typeof document !== 'undefined') {
   ensureMeta(
     'name',
     'viewport',
-    'width=device-width, initial-scale=1, viewport-fit=cover, shrink-to-fit=no',
+    'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no',
   );
 
   ensureLink('manifest', '/manifest.json');
