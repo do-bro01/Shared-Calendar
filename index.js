@@ -62,6 +62,15 @@ if (typeof document !== 'undefined') {
     document.body.style.backgroundColor = initialBg;
   }
 
+  // 입력란 포커스 시 브라우저 기본 파란 outline 제거
+  if (!document.getElementById('sc-no-focus-outline')) {
+    const style = document.createElement('style');
+    style.id = 'sc-no-focus-outline';
+    style.textContent =
+      'input:focus,textarea:focus,[contenteditable]:focus{outline:none!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent;}';
+    document.head.appendChild(style);
+  }
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
