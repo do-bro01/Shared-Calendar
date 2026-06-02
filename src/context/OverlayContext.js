@@ -25,7 +25,6 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import { StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const createPortalStore = () => {
   let portals = new Map();
@@ -71,23 +70,9 @@ export const OverlayHost = ({ children }) => {
 
 const PortalLayer = ({ store }) => {
   const portals = useSyncExternalStore(store.subscribe, store.getSnapshot);
-  // iOS RN 루트 뷰는 status bar/홈 인디케이터 safe area에 자동으로 인셋되어 있을 수 있어,
-  // 단순 StyleSheet.absoluteFill로는 상태바 영역까지 dim이 닿지 않는다.
-  // insets만큼 음수 오프셋을 줘서 부모 바깥(=상태바·홈 인디케이터 영역)까지 강제로 덮는다.
-  // iOS는 기본적으로 자식 뷰가 부모 바깥으로 그려지는 것을 허용하므로 클리핑되지 않음.
-  const insets = useSafeAreaInsets();
   if (portals.size === 0) return null;
   return (
-    <View
-      style={{
-        position: "absolute",
-        top: -insets.top,
-        bottom: -insets.bottom,
-        left: -insets.left,
-        right: -insets.right,
-      }}
-      pointerEvents="box-none"
-    >
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {Array.from(portals).map(([id, node]) => (
         <React.Fragment key={id}>{node}</React.Fragment>
       ))}
