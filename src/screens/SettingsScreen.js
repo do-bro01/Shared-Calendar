@@ -12,12 +12,14 @@ import {
   Alert,
   Modal,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import { supabase } from "../lib/supabaseClient";
 import { UserService } from "../services/UserService";
 import { FriendService } from "../services/FriendService";
+import { ChatService } from "../services/ChatService";
 import { logout } from "../services/AuthService";
 import { refreshBus } from "../lib/refreshBus";
 
@@ -30,6 +32,7 @@ export default function SettingsScreen() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [scIdInput, setScIdInput] = useState("");
+  const [embedRunning, setEmbedRunning] = useState(false);
 
   // 프로필 및 친구 목록 로드
   useEffect(() => {
@@ -216,6 +219,36 @@ export default function SettingsScreen() {
 
   const toggleDarkModeSwitch = () => theme.toggle();
   const toggleCreamModeSwitch = () => theme.toggleCream();
+
+  // 챗봇이 검색에 사용할 메모 임베딩을 일괄 갱신.
+  // 새로 작성·수정된 메모만 처리되며 (DB 트리거가 변경 시 자동 무효화),
+  // 비용은 메모당 약 $0.000005 수준.
+  const handleRunEmbedBatch = async () => {
+    setEmbedRunning(true);
+    try {
+      const { processed, capped } = await ChatService.runEmbedBatch();
+      const msg = capped
+        ? `${processed}개를 처리했어요. 남은 메모가 있어 한 번 더 눌러주세요.`
+        : processed === 0
+        ? "새로 알려줄 메모가 없어요"
+        : `${processed}개의 새 메모를 챗봇에게 알려줬어요`;
+      if (Platform.OS === "web") {
+        window.alert(msg);
+      } else {
+        Alert.alert("완료", msg);
+      }
+    } catch (err) {
+      console.error("runEmbedBatch failed:", err);
+      const msg = err.message || "처리 중 오류가 발생했어요";
+      if (Platform.OS === "web") {
+        window.alert(msg);
+      } else {
+        Alert.alert("오류", msg);
+      }
+    } finally {
+      setEmbedRunning(false);
+    }
+  };
 
   const SettingsItem = ({
     icon,
@@ -666,6 +699,61 @@ export default function SettingsScreen() {
                 onValueChange={toggleCreamModeSwitch}
               />
             )}
+          </View>
+
+          {/* AI 챗봇 섹션 */}
+          <Text style={[styles.sectionTitle, { color: theme.colors.tint }]}>
+            AI 챗봇
+          </Text>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.colors.background },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.settingItem,
+                {
+                  backgroundColor: theme.colors.background,
+                  borderBottomColor: "transparent",
+                },
+              ]}
+              onPress={handleRunEmbedBatch}
+              disabled={embedRunning}
+              activeOpacity={0.6}
+            >
+              <View style={styles.itemContent}>
+                <MaterialIcons
+                  name="auto-awesome"
+                  size={24}
+                  color={theme.colors.tint}
+                  style={styles.icon}
+                />
+                <View>
+                  <Text
+                    style={[styles.itemTitle, { color: theme.colors.text }]}
+                  >
+                    챗봇에게 내 일정 알려주기
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: theme.colors.text,
+                      opacity: 0.6,
+                      marginTop: 2,
+                    }}
+                  >
+                    새로 작성·수정한 메모를 챗봇이 검색할 수 있게 합니다
+                  </Text>
+                </View>
+              </View>
+              {embedRunning ? (
+                <ActivityIndicator color={theme.colors.tint} />
+              ) : (
+                <MaterialIcons name="sync" size={20} color="#aaa" />
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* 일반 설정 섹션 */}
