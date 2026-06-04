@@ -16,7 +16,8 @@ import { createUserClient } from "../_shared/supabaseClient.ts";
 import { chatComplete, embedTexts } from "../_shared/openai.ts";
 
 const HISTORY_LIMIT = 10; // 컨텍스트에 넣을 직전 메시지 수
-const TOP_K = 8; // 검색 청크 수
+const TOP_K = 8; // 메모 본문 검색 청크 수
+const META_LIMIT = 200; // 그룹 전체 일정 메타데이터 cap (최근부터)
 
 type Chunk = {
   event_id: string;
@@ -92,36 +93,31 @@ Deno.serve(async (req) => {
     const todayStr = nowKst.toISOString().slice(0, 10);
     const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
     const weekdayStr = weekdays[nowKst.getUTCDay()];
-    const upcomingEnd = new Date(
-      nowKst.getTime() + 7 * 24 * 60 * 60 * 1000,
-    )
-      .toISOString()
-      .slice(0, 10);
 
-    // ---- 병렬: RAG 검색 + 오늘~7일 후 일정 메타 -----------------------
+    // ---- 병렬: RAG 검색 + 그룹 전체 일정 메타 -------------------------
+    // 임베딩 검색만으론 "작년에 먹은 음식" 같은 카테고리/시간 한정 질문에서
+    // 일부 일정이 누락됨 (TOP_K 한계 + 의미 유사도 한계).
+    // → 그룹 전체 일정 메타데이터를 같이 컨텍스트로 주입해
+    //   임베딩 상태·점수와 무관하게 LLM 이 빠짐없이 보고 답할 수 있게 함.
     const [queryEmbedding] = await embedTexts([message]);
 
-    const [searchRes, upcomingRes] = await Promise.all([
+    const [searchRes, allEventsRes] = await Promise.all([
       supabase.rpc("search_group_memories", {
         p_group_id: group_calendar_id,
         p_query_embedding: queryEmbedding,
         p_match_count: TOP_K,
       }),
-      // 시간 한정 질문 ("오늘 뭐 있지?", "이번 주에 뭐 있지?") 보강용.
-      // 임베딩 검색만으론 날짜 매칭이 안 잡혀서 별도 쿼리로 채워줌.
       supabase
         .from("group_events")
         .select("title, date, end_date, memo")
         .eq("group_calendar_id", group_calendar_id)
-        .gte("end_date", todayStr)
-        .lte("date", upcomingEnd)
-        .order("date", { ascending: true })
-        .limit(20),
+        .order("date", { ascending: false })
+        .limit(META_LIMIT),
     ]);
 
     if (searchRes.error) throw searchRes.error;
     const chunks: Chunk[] = searchRes.data ?? [];
-    const upcoming = upcomingRes.data ?? [];
+    const allEvents = allEventsRes.data ?? [];
 
     // ---- 시스템 프롬프트 구성 ----------------------------------------
     const chunksStr = chunks.length === 0
@@ -133,35 +129,39 @@ Deno.serve(async (req) => {
         })
         .join("\n\n");
 
-    const upcomingStr = upcoming.length === 0
-      ? "(다가오는 일정 없음)"
-      : upcoming
+    // 메모는 길어질 수 있어 100자 cap → 토큰 폭주 방지
+    const allEventsStr = allEvents.length === 0
+      ? "(등록된 일정 없음)"
+      : allEvents
         .map((e) => {
           const range = e.date === e.end_date
             ? e.date
             : `${e.date} ~ ${e.end_date}`;
-          const memoPart = e.memo ? `\n  메모: ${e.memo}` : "";
+          const memoPart = e.memo
+            ? ` · ${e.memo.length > 100 ? e.memo.slice(0, 100) + "…" : e.memo}`
+            : "";
           return `- ${range} ${e.title}${memoPart}`;
         })
         .join("\n");
 
     const systemPrompt =
-      `당신은 사용자의 공유 캘린더 메모를 기반으로 질문에 답하는 한국어 어시스턴트입니다.
+      `당신은 사용자의 공유 캘린더 일정·메모를 기반으로 질문에 답하는 한국어 어시스턴트입니다.
 
 오늘은 ${todayStr} (${weekdayStr}요일) 입니다.
-"오늘", "어제", "내일", "이번 주", "다음 주" 같은 표현은 이 날짜를 기준으로 해석하세요.
+"오늘", "어제", "내일", "이번 주", "다음 주", "작년", "올해" 같은 표현은 이 날짜를 기준으로 해석하세요.
 
-아래 [검색된 일정] 과 [오늘부터 7일간 일정] 만을 근거로 답하세요. 두 곳 어디에도 없으면 추측하지 말고 "기록에 없어요" 라고 답하세요.
+아래 [전체 일정 목록] 과 [관련 메모 상세] 만을 근거로 답하세요. 두 곳 어디에도 없으면 추측하지 말고 "기록에 없어요" 라고 답하세요.
 
-[검색된 일정] (질문과 의미상 유사한 메모)
+[전체 일정 목록] (날짜·제목·짧은 메모, 최근부터 최대 ${META_LIMIT}개)
+${allEventsStr}
+
+[관련 메모 상세] (질문과 의미상 가까운 메모의 본문)
 ${chunksStr}
-
-[오늘부터 7일간 일정] (날짜 기반)
-${upcomingStr}
 
 답변 규칙:
 - 한국어로 자연스럽게, 친근한 말투
 - 가능하면 일정 날짜와 제목을 함께 언급
+- 카테고리·기간 한정 질문 ("작년 음식", "이번 달 약속" 등) 은 [전체 일정 목록] 을 빠짐없이 살펴 누락 없게 답하세요
 - 추측·창작 금지`;
 
     // ---- LLM 호출 ----------------------------------------------------
