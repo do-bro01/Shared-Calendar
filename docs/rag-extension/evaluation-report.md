@@ -22,7 +22,7 @@
 
 > **iter 3 변경**: (a) 평가 LLM 을 `gpt-4o-mini` → `gpt-4o` 로 업그레이드, (b) chat-rag 답변에 등장한 메타 채널 일정을 retrieved_contexts 에 추가 (vector top-8 외에). 두 변경은 챗봇은 그대로 두고 **측정을 더 정확히 한 것**. iter 2 응답을 재사용하므로 chat-rag 재호출 없음.
 >
-> Faithfulness **0.970** 으로 거의 만점, 목표 돌파. Ctx. Recall 도 0.76 로 목표 0.80 에 근접. Ctx. Precision 은 메타 추가로 살짝 하락 (0.586 → 0.537). **Answer Relevancy 는 여전히 0.4 부근에 묶임** — gpt-4o 로 업그레이드해도 `LLM returned 1 generations instead of requested 3` 경고가 빈도만 줄고 사라지지 않음. RAGAS Ans.Rel 의 한국어 후보-질문 역생성에 구조적 한계가 있음 (자세히는 §5).
+> Faithfulness **0.970** 으로 거의 만점, 목표 돌파. Ctx. Recall 도 0.76 로 목표 0.80 에 근접. Ctx. Precision 은 메타 추가로 살짝 하락 (0.586 → 0.537). **Answer Relevancy 는 여전히 0.4 부근에 묶임** — gpt-4o 로 업그레이드해도 `LLM returned 1 generations instead of requested 3` 경고가 빈도만 줄고 사라지지 않음. RAGAS Ans.Rel 의 한국어 후보-질문 역생성에 구조적 한계가 있음 (자세히는 §9.5).
 
 ---
 
@@ -80,7 +80,7 @@ Faith 0.700 → 0.867 → **0.933**, Ans. Rel. 0.244 → 0.423 → **0.510** (�
 
 ### 3.4 시간 한정 회상 — Faith 만점, Ans.Rel. 측정 한계
 
-Faith **1.000 만점**, Ctx. Recall 0.635. 그러나 Ans. Rel. 0.291 로 4 카테고리 중 최하. Q15 ("작년 추석 때 뭐 했어?") 의 답변이 `2025-10-07 — 추석 모임 (민준이네 본가)` 28자로 너무 짧음 → RAGAS Ans. Rel. (답변→질문 역추정) 페널티. 측정 방식 한계라 §5 에서 후속 논의.
+Faith **1.000 만점**, Ctx. Recall 0.635. 그러나 Ans. Rel. 0.291 로 4 카테고리 중 최하. Q15 ("작년 추석 때 뭐 했어?") 의 답변이 `2025-10-07 — 추석 모임 (민준이네 본가)` 28자로 너무 짧음 → RAGAS Ans. Rel. (답변→질문 역추정) 페널티. 측정 방식 한계라 §9.5 에서 후속 논의.
 
 ---
 
@@ -138,7 +138,7 @@ Faith **1.000 만점**, Ctx. Recall 0.635. 그러나 Ans. Rel. 0.291 로 4 카�
 | 메트릭 | iter 2 | iter 3 | Δ | 비고 |
 |---|---:|---:|---:|---|
 | Faithfulness | 0.807 | **0.970** | **+0.163** | 목표 0.85 돌파, 거의 만점 |
-| Answer Relevancy | 0.393 | 0.398 | +0.005 | 측정 한계 ([§7-Ans.Rel 한계](#7-평가-방법론-한계)) |
+| Answer Relevancy | 0.393 | 0.398 | +0.005 | 측정 한계 (§9.5) |
 | Context Precision | 0.586 | 0.537 | −0.049 | 메타 추가로 약간 희석 |
 | Context Recall | 0.638 | **0.760** | **+0.122** | 목표 0.80 근접 |
 
@@ -153,11 +153,76 @@ Faith **1.000 만점**, Ctx. Recall 0.635. 그러나 Ans. Rel. 0.291 로 4 카�
 
 iter 1·2 의 Faith·Ctx 점수 일부는 **챗봇 결함이 아니라 RAGAS 가 메타 채널을 못 본 측정 노이즈** 였다는 것이 정량적으로 확인됨. iter 3 은 "챗봇이 실제로 본 컨텍스트" 를 정확히 노출했을 때의 점수로, 이게 챗봇의 진짜 능력에 더 가까움.
 
-남은 한계는 **Answer Relevancy 의 RAGAS 구조적 문제**. gpt-4o 로 올려도 후보 질문 n=3 생성이 한국어에서 종종 n=1 로 떨어짐. 이 메트릭만 따로 보고서에 풀이 필요 (§7).
+남은 한계는 **Answer Relevancy 의 RAGAS 구조적 문제**. gpt-4o 로 올려도 후보 질문 n=3 생성이 한국어에서 종종 n=1 로 떨어짐. 자세히는 §9.5.
 
 ---
 
-## 6. 질문별 상세 (iter 3)
+## 6. Baseline vs RAG 비교 (project-plan §9.3)
+
+[project-plan §9.3](project-plan.md) 의 핵심 요구사항. **RAG 가 순수 LLM 대비 얼마나 가치가 있는가** 를 정량 측정.
+
+### 6.1 실험 설계 (apples-to-apples)
+
+| 항목 | Baseline (대조군) | RAG (제안군) |
+|---|---|---|
+| 검색 | 없음 — 전체 일정 200건 dump | vector top-8 + 메타 200건 |
+| 생성 LLM | gpt-4o-mini, temp 0.3 | gpt-4o-mini, temp 0.3 (동일) |
+| 시스템 프롬프트 | chat-rag 와 동일, "[관련 메모 상세]" 섹션만 제거 | chat-rag iter 2 |
+| 평가 | RAGAS gpt-4o + 답변-증거 메타 augment | 동일 |
+
+[scripts/eval_ragas.py](../../scripts/eval_ragas.py) 에 `--mode baseline` 플래그 추가. 두 시스템에 같은 15개 GT 를 던지고 측정.
+
+### 6.2 결과: RAG 가 4 메트릭 모두 우세
+
+![comparison](../../scripts/eval_outputs/comparison_baseline_vs_rag.png)
+
+| 메트릭 | Baseline | RAG | Δ |
+|---|---:|---:|---:|
+| Faithfulness | 0.727 | **0.970** | **+0.243** |
+| Answer Relevancy | 0.335 | **0.398** | +0.063 |
+| Context Precision | 0.533 | 0.537 | +0.004 |
+| Context Recall | 0.698 | **0.760** | +0.062 |
+
+**핵심 발견**: 가장 큰 차이는 **Faithfulness (+0.24)**. RAG 가 환각·노이즈를 크게 줄임. Baseline 은 200건 dump 중 잘못된 일정을 끌어쓰는 경우가 잦음.
+
+### 6.3 카테고리별 분석
+
+![comparison-cat](../../scripts/eval_outputs/comparison_by_category.png)
+
+| 카테고리 | Baseline Faith | RAG Faith | RAG의 우위 |
+|---|---:|---:|---|
+| 사실(날짜/장소) | 1.000 | 0.958 | ≈ 동일. 단일 일정 답이라 Baseline 도 충분 |
+| 사실(인물/관계) | 0.500 | **1.000** | **RAG 큰 우위** — "셋이 등산" 같은 추상 조건에서 Baseline 은 부적합 일정 (동아리 MT) 끌어옴 |
+| 통계/패턴 | 0.800 | 0.933 | RAG 약우위 |
+| 시간 한정 회상 | 0.333 | **1.000** | **RAG 압도** — 시간 범위 질문에서 Baseline 이 환각 다발 |
+
+### 6.4 대표 케이스 — Q15 "작년 추석 때 뭐 했어?"
+
+| | 답변 |
+|---|---|
+| Baseline | "기록에 없어요." (8자, 추석 모임 일정을 못 찾음) |
+| RAG | "2025-10-07 — 추석 모임 (민준이네 본가)" (28자, 정확) |
+
+**왜 Baseline 이 실패했나?** 일정 제목은 "추석 모임 (민준이네 본가)" 인데 baseline LLM 은 200건 list 에서 "추석" 키워드를 직접 매칭해야 함. 한국어 LLM 이 200건 list 스캔에서 일관되게 찾지 못함. RAG 는 임베딩 시맨틱 유사도로 "추석" → "추석 모임 (민준이네 본가)" 매칭이 자명.
+
+### 6.5 대표 케이스 — Q14 "2026년 1월에 한 일들"
+
+| | 답변 일정 수 |
+|---|---|
+| Baseline | 5개 (신년 모임·카페봄·익선동·헤드윅·블루보틀) |
+| RAG | 3개 (신년 모임·카페봄·헤드윅) |
+
+**Baseline 이 더 많이 잡음** — 시간 범위 필터링은 LLM 이 list 전체를 훑을 때 의외로 잘 됨. RAG 는 vector top-8 에 의존하다 보니 1월 후반 일정을 놓침.
+
+→ 결론: **단순 시간 범위 질문은 baseline 도 강함**. RAG 의 진짜 가치는 **인물·활동 같은 추상 조건** 과 **시맨틱 유사 매칭** (Q15 같은) 에 있음.
+
+### 6.6 발표용 한 줄 결론
+
+> "vector + 메타 RAG 는 순수 LLM 대비 Faithfulness 가 0.73 → 0.97 (+33%) 로 크게 향상. 특히 인물/관계·시간 한정 질문에서 환각을 거의 제거. 단순 시간 범위 질문에서는 두 시스템이 비등하므로 진짜 가치는 시맨틱 매칭 카테고리에 있음."
+
+---
+
+## 7. 질문별 상세 (iter 3)
 
 ![per-question](../../scripts/eval_outputs/ragas_per_question.png)
 
@@ -183,7 +248,7 @@ iter 1·2 의 Faith·Ctx 점수 일부는 **챗봇 결함이 아니라 RAGAS 가
 
 ---
 
-## 7. 실패 패턴 정리
+## 8. 실패 패턴 정리
 
 iter 3 시점에서 남은 패턴.
 
@@ -198,7 +263,7 @@ iter 3 시점에서 남은 패턴.
 
 ---
 
-## 8. 평가 방법론 한계
+## 9. 평가 방법론 한계
 
 iter 3 에서 (1) 이 부분 해소됨. 남은 한계:
 
@@ -206,35 +271,82 @@ iter 3 에서 (1) 이 부분 해소됨. 남은 한계:
 2. **합성 데이터**: 일정 80건·메모 60건 규모. 실사용 데이터의 다양성·노이즈가 빠져있어 평가 편향 가능.
 3. **단일 평가 LLM (gpt-4o)**: 같은 OpenAI 패밀리 모델로 self-bias 가능. claude / 다른 평가자와 교차 검증 안 함.
 4. **단일 페르소나 (지수)**: 다른 두 페르소나 (민준·서연) 시점의 질문은 안 던짐. RLS 가 페르소나마다 다르게 동작하는 케이스 미커버.
-5. **Answer Relevancy 의 한국어 한계**: RAGAS 의 Ans.Rel. 은 답변에서 N개 후보 질문을 LLM 으로 역생성한 뒤 원 질문과의 임베딩 유사도를 평균함. **gpt-4o 로도 한국어에서 n=1 만 반환하는 경우 빈번** → 점수 분산↑, 평균이 0.4 부근에 갇힘. 자세히 보면 카테고리별 win/loss 는 의미 있지만 절대값을 0.8 목표와 직접 비교하긴 부적절. 후속 후보: `ragas.metrics.collections` (신 API), `AnswerSimilarity` (reference 와 직접 비교).
+
+### 9.5 Answer Relevancy 가 0.4 부근에 갇히는 이유 (상세 분석)
+
+iter 1·2·3 모두 평균 0.39~0.40. **gpt-4o 평가자로 올려도 안 움직임**. 메트릭 자체에 구조적 한계가 있어 따로 풀어둠.
+
+**측정 방식 복기**: RAGAS Answer Relevancy 는
+1. 답변(response)을 LLM 에게 주고 "이 답변이 어떤 질문에 대한 것인가?" 물어 **N개 후보 질문을 역생성** (기본 N=3).
+2. N개 후보 질문과 원 질문을 각각 임베딩.
+3. 코사인 유사도를 N개 평균. 이 값이 점수.
+
+즉 **답변→질문 역재구성이 원 질문과 얼마나 같은가** 를 본다. 문제는 5가지:
+
+**(1) 한국어에서 `n>1` 생성 실패**
+평가 로그에 `LLM returned 1 generations instead of requested 3` 가 빈번. OpenAI API 의 `n=3` 파라미터를 RAGAS 가 요청하지만 한국어 답변에 대해 실제로는 1개만 돌아옴. gpt-4o-mini → gpt-4o 업그레이드 후 빈도 감소했지만 **사라지지 않음**. n=1 로 떨어지면 단 한 개의 역생성 질문이 점수 전체를 결정 → 분산 ↑, 평균 ↓.
+
+**(2) 한국어 임베딩 유사도가 표현 다양성에 민감**
+"지수 생일은 언제야?" 와 "지수의 생일이 언제인가요?" 는 의미가 같지만 `text-embedding-3-small` 의 코사인 유사도는 ~0.85 정도 (영어였다면 0.95+). 역생성 질문이 살짝만 달라도 0.7~0.8 사이로 떨어짐. 즉 **만점이 구조적으로 어려움**.
+
+**(3) 짧은 답변 페널티**
+Q5 ("자라섬 며칠?") 답변 "2025년 10월 18일부터 19일까지 갔어." 25자 → Ans.Rel **0.169**. 정답인데 점수 낮음. 짧은 답에서 LLM 이 후보 질문을 만들 때 정보가 부족해 모호한 질문을 생성. 예: "10월 18일에 갔어요" 만 있으면 "10월 18일에 어디 갔어?" 같은 후보 → 원 질문 "자라섬 며칠?" 과 임베딩 거리 ↑.
+
+**(4) Bullet 답변이 자연어 한 문장보다 불리**
+| 답변 형식 | Q | Ans.Rel | 이유 |
+|---|---|---|---|
+| 자연어 한 문장 | Q2 "12월 13일에 본 콘서트는 아이유 콘서트였어" | **0.711** | LLM 이 "12월 13일 본 콘서트는?" 같은 명확한 후보 생성 |
+| Bullet only | Q15 "2025-10-07 — 추석 모임 (민준이네 본가)" | 0.156 | "10월 7일에 뭐 했어?" "추석에 뭐 했어?" 등 후보가 흩어짐 |
+
+**(5) RAGAS 0.4.x 의 known issue**
+구 API (`ragas.metrics.AnswerRelevancy`) 는 deprecated. 신 API (`ragas.metrics.collections.AnswerRelevancy`) 로 이전 중이고 OpenAI 통합 방식이 다름. 현재 쓰는 구버전에 한국어 노이즈가 있음을 RAGAS issue tracker 에서도 보고됨.
+
+#### 그래서 어떻게 봐야 하나
+- **절대값 0.4 가 챗봇이 50% 수준이라는 뜻이 아님** — 측정 노이즈가 절대값을 짓누름.
+- **상대 비교는 유효함**: iter 1→2→3 간, 카테고리 간, Baseline vs RAG 간 비교는 같은 측정 노이즈 위에서 일관됨.
+- **Q2·Q11 처럼 0.7+ 가 나온 케이스**는 "이 답변 형식이 RAGAS 와 잘 맞는다" 는 신호 — 짧고 자연어 한 문장이며 핵심 정보가 정확.
+
+#### 개선 후보
+| 방법 | 효과 | 비용 |
+|---|---|---|
+| `ragas.metrics.collections.AnswerRelevancy` (신 API) 로 교체 | n>1 이슈 회피 가능성 | 30분, 동작 검증 필요 |
+| `AnswerSimilarity` 메트릭 추가 (reference 와 직접 임베딩 비교) | n>1 불필요. 안정적 절대값 | 30분 |
+| `strictness=1` 설정 | n=1 을 명시적으로 받아들임 — 단일 후보 평균 | 1분, 분산 줄지만 평균 오를지는 미지수 |
+| 한국어 특화 임베딩 (`bge-m3`) | (2) 의 표현 다양성 페널티 완화 | 1일 이상 (RAGAS 가 OpenAI 임베딩 가정) |
+| Claude 로 평가자 교체 | (1) 의 n>1 이슈가 anthropic API 에선 다를 수 있음 | 2시간, RAGAS 가 Anthropic 지원 확인 필요 |
+
+가장 가성비: **AnswerSimilarity 추가** — 새 메트릭이라 기존 Ans.Rel 0.4 와 별도로 보고 가능. 발표 자료에 "두 메트릭으로 측정하니 X·Y 점" 형태로 정직하게 제시 가능.
 
 ---
 
-## 9. 개선 후보 (다음 iter)
+## 10. 개선 후보 (다음 iter)
 
-iter 3 결과 반영해 업데이트한 우선순위.
-
-1. ~~**시스템 프롬프트 개선**~~ — iter 2 적용 완료. Faith +0.06, 통계 카테고리 win.
-2. ~~**메타 채널 RAGAS 통합 + gpt-4o 평가자**~~ — iter 3 적용 완료. Faith **+0.16**, Ctx.Recall +0.12.
-3. **비교군 평가** ([project-plan §9.3](project-plan.md)) — Baseline (순수 LLM, 일정 전체 dump) vs RAG. 발표 핵심 자료. 미착수, **다음 우선순위**.
-4. **Tag 필터링 + Hybrid Search** (1~2일) — `events.tags` 컬럼 활용 + BM25. Q7·Q9·Q10 의 Ctx.Precision 0.0~0.11 을 끌어올릴 유일한 방법. 예상: 인물/관계 카테고리 Ctx +0.3.
+1. ~~**시스템 프롬프트 개선**~~ — iter 2 적용 완료.
+2. ~~**메타 채널 RAGAS 통합 + gpt-4o 평가자**~~ — iter 3 적용 완료.
+3. ~~**Baseline 비교군 평가**~~ — iter 3 적용 완료 (§6). RAG +0.243 Faith 우위.
+4. **Tag 필터링 + Hybrid Search** (1~2일) — `events.tags` 활용 + BM25. Q7·Q9·Q10 의 Ctx.Precision 0.0~0.11 을 끌어올릴 유일한 방법. 인물/관계 Ctx +0.3 기대.
 5. **top-k 12~16** (1시간) — Q1·Q10·Q13·Q14 의 답변 누락 보완. iter 3 메타 augment 가 부분 대체했지만 vector 검색 자체를 강화해야 챗봇 답변도 좋아짐.
-6. **Ans. Rel. 메트릭 교체** — `ragas.metrics.collections.AnswerRelevancy` (신 API) 또는 `AnswerSimilarity` 추가. 현재 Ans. Rel. 0.4 근처가 측정 노이즈인지 진짜 한계인지 분리.
-7. **프롬프트 톤 미세조정** — Q5·Q15 같은 28자 답변 보완. 발표 자료에선 부수적.
+6. **AnswerSimilarity 추가** — Ans.Rel 0.4 가 측정 노이즈인지 진짜 한계인지 분리 (§9.5).
+7. **프롬프트 톤 미세조정** — Q5·Q15 같은 28자 답변 보완.
 
 ---
 
-## 10. 산출물 인덱스
+## 11. 산출물 인덱스
 
-iter 3 (현재):
+iter 3 RAG (현재):
 | 파일 | 내용 |
 |---|---|
-| [scripts/eval_outputs/rag_responses.json](../../scripts/eval_outputs/rag_responses.json) | chat-rag 응답 15건 (iter 2 와 동일) |
+| [scripts/eval_outputs/rag_responses.json](../../scripts/eval_outputs/rag_responses.json) | chat-rag 응답 15건 |
 | [scripts/eval_outputs/ragas_results.csv](../../scripts/eval_outputs/ragas_results.csv) | 질문별 4메트릭 |
-| [scripts/eval_outputs/ragas_by_category.csv](../../scripts/eval_outputs/ragas_by_category.csv) | 카테고리별 평균 |
 | [scripts/eval_outputs/ragas_radar.png](../../scripts/eval_outputs/ragas_radar.png) | 전체 평균 레이더 |
 | [scripts/eval_outputs/ragas_by_category.png](../../scripts/eval_outputs/ragas_by_category.png) | 카테고리 바차트 |
-| [scripts/eval_outputs/ragas_per_question.png](../../scripts/eval_outputs/ragas_per_question.png) | 질문별 바차트 |
+| [scripts/eval_outputs/comparison_baseline_vs_rag.png](../../scripts/eval_outputs/comparison_baseline_vs_rag.png) | **RAG vs Baseline 헤드라인** |
+| [scripts/eval_outputs/comparison_by_category.png](../../scripts/eval_outputs/comparison_by_category.png) | 카테고리별 RAG vs Baseline |
+
+Baseline 비교군:
+| 파일 | 내용 |
+|---|---|
+| [scripts/eval_outputs_baseline/](../../scripts/eval_outputs_baseline/) | 순수 LLM (vector 검색 없이 메타 200건 dump) |
 
 이전 iter (대조군 보존):
 | 파일 | 내용 |
@@ -246,8 +358,8 @@ iter 3 (현재):
 ```bash
 cd scripts
 uv sync --group ragas
-# 최신 (iter 3) 재현
+# RAG iter 3 (현재 헤드라인)
 uv run python eval_ragas.py --skip-collect --include-meta --evaluator gpt-4o
-# iter 2 재현 (메타 augment 없이 gpt-4o-mini)
-uv run python eval_ragas.py --skip-collect --evaluator gpt-4o-mini
+# Baseline 비교군
+uv run python eval_ragas.py --mode baseline --include-meta --evaluator gpt-4o
 ```
