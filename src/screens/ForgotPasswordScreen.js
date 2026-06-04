@@ -1,4 +1,4 @@
-// SC/src/screens/SignupScreen.js
+// SC/src/screens/ForgotPasswordScreen.js
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -15,7 +15,7 @@ import { useTheme } from "../context/ThemeContext";
 import { Radius, Spacing, Typography } from "../../constants/theme";
 import Button from "../components/Button";
 import {
-  sendSignupOtp,
+  sendPasswordResetOtp,
   verifyEmailOtp,
   setPasswordForCurrentUser,
 } from "../services/AuthService";
@@ -24,11 +24,11 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 const isValidEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
-export default function SignupScreen({ navigation }) {
+export default function ForgotPasswordScreen({ navigation }) {
   const theme = useTheme();
   const colors = theme.colors;
 
-  const [step, setStep] = useState(1); // 1: 이메일, 2: 코드, 3: 비밀번호
+  const [step, setStep] = useState(1); // 1: 이메일, 2: 코드, 3: 새 비밀번호
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
@@ -67,12 +67,17 @@ export default function SignupScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      await sendSignupOtp(trimmed);
+      await sendPasswordResetOtp(trimmed);
       setEmail(trimmed);
       setStep(2);
       setResendIn(RESEND_COOLDOWN_SECONDS);
     } catch (err) {
-      Alert.alert("오류", err?.message || "인증코드 발송에 실패했습니다.");
+      Alert.alert(
+        "오류",
+        err?.message?.includes("not found")
+          ? "가입되지 않은 이메일입니다."
+          : err?.message || "인증코드 발송에 실패했습니다.",
+      );
     } finally {
       setLoading(false);
     }
@@ -82,7 +87,7 @@ export default function SignupScreen({ navigation }) {
     if (resendIn > 0) return;
     setLoading(true);
     try {
-      await sendSignupOtp(email);
+      await sendPasswordResetOtp(email);
       setResendIn(RESEND_COOLDOWN_SECONDS);
       Alert.alert("안내", "인증코드를 다시 보냈습니다.");
     } catch (err) {
@@ -109,7 +114,7 @@ export default function SignupScreen({ navigation }) {
     }
   };
 
-  const handleSetPassword = async () => {
+  const handleResetPassword = async () => {
     if (password.length < 8) {
       Alert.alert("안내", "비밀번호는 8자 이상이어야 합니다.");
       return;
@@ -121,9 +126,9 @@ export default function SignupScreen({ navigation }) {
     setLoading(true);
     try {
       await setPasswordForCurrentUser(password);
-      // 가입 완료. App.js의 onAuthStateChange가 자동으로 MainTabs로 전환.
+      // 인증 직후 세션이 살아있으므로 자동으로 MainTabs로 전환됨.
     } catch (err) {
-      Alert.alert("오류", err?.message || "비밀번호 설정에 실패했습니다.");
+      Alert.alert("오류", err?.message || "비밀번호 변경에 실패했습니다.");
       setLoading(false);
     }
   };
@@ -139,8 +144,6 @@ export default function SignupScreen({ navigation }) {
       return;
     }
     if (step === 3) {
-      // 비밀번호 단계로 돌아간 경우 인증은 이미 끝나 세션이 살아있음.
-      // 단순히 step만 되돌림.
       setPassword("");
       setPasswordConfirm("");
       setStep(2);
@@ -183,10 +186,10 @@ export default function SignupScreen({ navigation }) {
         {step === 1 && (
           <>
             <Text style={[styles.title, { color: colors.text }]}>
-              이메일로 회원가입
+              비밀번호 찾기
             </Text>
             <Text style={[styles.description, { color: colors.muted }]}>
-              사용하실 이메일 주소를 입력해주세요.{"\n"}
+              가입하신 이메일 주소를 입력해주세요.{"\n"}
               인증코드를 보내드릴게요.
             </Text>
 
@@ -221,19 +224,6 @@ export default function SignupScreen({ navigation }) {
               fullWidth
               style={{ marginTop: Spacing.lg }}
             />
-
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.bottomLink}
-              hitSlop={8}
-            >
-              <Text style={[styles.bottomLinkText, { color: colors.muted }]}>
-                이미 계정이 있으신가요?{" "}
-                <Text style={{ color: colors.tint, fontWeight: "600" }}>
-                  로그인
-                </Text>
-              </Text>
-            </TouchableOpacity>
           </>
         )}
 
@@ -301,10 +291,10 @@ export default function SignupScreen({ navigation }) {
         {step === 3 && (
           <>
             <Text style={[styles.title, { color: colors.text }]}>
-              비밀번호 설정
+              새 비밀번호 설정
             </Text>
             <Text style={[styles.description, { color: colors.muted }]}>
-              안전한 비밀번호를 만들어주세요.{"\n"}
+              새로 사용하실 비밀번호를 입력해주세요.{"\n"}
               (8자 이상)
             </Text>
 
@@ -317,7 +307,7 @@ export default function SignupScreen({ navigation }) {
                   backgroundColor: colors.card,
                 },
               ]}
-              placeholder="비밀번호"
+              placeholder="새 비밀번호"
               placeholderTextColor={colors.muted}
               value={password}
               onChangeText={setPassword}
@@ -339,7 +329,7 @@ export default function SignupScreen({ navigation }) {
                   marginTop: Spacing.md,
                 },
               ]}
-              placeholder="비밀번호 확인"
+              placeholder="새 비밀번호 확인"
               placeholderTextColor={colors.muted}
               value={passwordConfirm}
               onChangeText={setPasswordConfirm}
@@ -349,12 +339,12 @@ export default function SignupScreen({ navigation }) {
               textContentType="newPassword"
               editable={!loading}
               returnKeyType="done"
-              onSubmitEditing={handleSetPassword}
+              onSubmitEditing={handleResetPassword}
             />
 
             <Button
-              title="가입 완료"
-              onPress={handleSetPassword}
+              title="비밀번호 재설정"
+              onPress={handleResetPassword}
               loading={loading}
               size="lg"
               fullWidth

@@ -3,96 +3,250 @@ import React, { useState } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
-import { signInWithGoogle } from "../services/AuthService";
+import { useTheme } from "../context/ThemeContext";
+import { Radius, Spacing, Typography } from "../../constants/theme";
+import Button from "../components/Button";
+import { signInWithGoogle, signInWithEmail } from "../services/AuthService";
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
+  const theme = useTheme();
+  const colors = theme.colors;
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleGoogleSignIn = async () => {
+  const handleEmailLogin = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert("안내", "이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
     setLoading(true);
     try {
-      const result = await signInWithGoogle();
-      if (result?.url) {
-        Alert.alert("안내", "Google 로그인 페이지로 이동합니다.");
-      }
-    } catch (error) {
-      Alert.alert("오류", "Google 로그인에 실패했습니다.");
+      await signInWithEmail(email, password);
+      // onAuthStateChange가 자동으로 MainTabs로 전환.
+    } catch (err) {
+      Alert.alert(
+        "로그인 실패",
+        err?.message?.includes("Invalid login credentials")
+          ? "이메일 또는 비밀번호가 올바르지 않습니다."
+          : err?.message || "로그인에 실패했습니다.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>친구와 함께하는 일정,{"\n"}SC에서 시작해요</Text>
-      <Text style={styles.subtitle}>
-        달력방을 만들어 친구들과 약속을 공유하고,{"\n"}소중한 순간을 함께 계획해보세요
-      </Text>
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (_error) {
+      Alert.alert("오류", "Google 로그인에 실패했습니다.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#395fa5ff" />
-      ) : (
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.googleButton]}
-            onPress={handleGoogleSignIn}
-            activeOpacity={0.8}
-          >
-            <Image
-              source={require("../../assets/google-logo.png")}
-              style={styles.googleIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.googleButtonText}>Google로 시작하기</Text>
-          </TouchableOpacity>
+  return (
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={[styles.title, { color: colors.text }]}>
+          친구와 함께하는 일정,{"\n"}SC에서 시작해요
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
+          달력방을 만들어 친구들과 약속을 공유하고,{"\n"}
+          소중한 순간을 함께 계획해보세요
+        </Text>
+
+        <TextInput
+          style={[
+            styles.input,
+            {
+              color: colors.text,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+            },
+          ]}
+          placeholder="이메일"
+          placeholderTextColor={colors.muted}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          editable={!loading && !googleLoading}
+          returnKeyType="next"
+        />
+
+        <TextInput
+          style={[
+            styles.input,
+            {
+              color: colors.text,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              marginTop: Spacing.md,
+            },
+          ]}
+          placeholder="비밀번호"
+          placeholderTextColor={colors.muted}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          textContentType="password"
+          editable={!loading && !googleLoading}
+          returnKeyType="done"
+          onSubmitEditing={handleEmailLogin}
+        />
+
+        <Button
+          title="로그인"
+          onPress={handleEmailLogin}
+          loading={loading}
+          disabled={googleLoading}
+          size="lg"
+          fullWidth
+          style={{ marginTop: Spacing.lg }}
+        />
+
+        <TouchableOpacity
+          onPress={() => navigation.navigate("ForgotPassword")}
+          style={styles.forgotLink}
+          hitSlop={8}
+        >
+          <Text style={[styles.forgotText, { color: colors.muted }]}>
+            비밀번호를 잊으셨나요?
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider}>
+          <View
+            style={[styles.dividerLine, { backgroundColor: colors.border }]}
+          />
+          <Text style={[styles.dividerText, { color: colors.muted }]}>or</Text>
+          <View
+            style={[styles.dividerLine, { backgroundColor: colors.border }]}
+          />
         </View>
-      )}
-    </View>
+
+        <TouchableOpacity
+          style={[
+            styles.googleButton,
+            {
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+              opacity: loading ? 0.5 : 1,
+            },
+          ]}
+          onPress={handleGoogleSignIn}
+          disabled={loading || googleLoading}
+          activeOpacity={0.8}
+        >
+          <Image
+            source={require("../../assets/google-logo.png")}
+            style={styles.googleIcon}
+            resizeMode="contain"
+          />
+          <Text style={[styles.googleButtonText, { color: colors.text }]}>
+            {googleLoading ? "Google 연결 중..." : "Google로 계속하기"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Signup")}
+          style={styles.signupLink}
+          hitSlop={8}
+        >
+          <Text style={[styles.signupText, { color: colors.muted }]}>
+            아직 계정이 없으신가요?{" "}
+            <Text style={{ color: colors.tint, fontWeight: "600" }}>
+              회원가입
+            </Text>
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scroll: {
+    flexGrow: 1,
     justifyContent: "center",
-    padding: 20,
-    backgroundColor: "#ffffffff",
+    padding: Spacing.xl,
   },
   title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    marginBottom: 16,
+    fontSize: Typography.title2,
+    fontWeight: "700",
+    marginBottom: Spacing.md,
     textAlign: "center",
-    lineHeight: 34,
-    color: "#222",
+    lineHeight: 32,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: Typography.subhead,
     textAlign: "center",
-    marginBottom: 40,
+    marginBottom: Spacing.xxl,
     lineHeight: 20,
   },
-  buttonContainer: {
-    gap: 15,
+  input: {
+    borderWidth: 1,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    fontSize: Typography.body,
   },
-  button: {
-    padding: 15,
-    borderRadius: 8,
+  forgotLink: {
+    alignSelf: "flex-end",
+    marginTop: Spacing.md,
+  },
+  forgotText: {
+    fontSize: Typography.subhead,
+  },
+  divider: {
+    flexDirection: "row",
     alignItems: "center",
+    marginVertical: Spacing.xl,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: Spacing.md,
+    fontSize: Typography.subhead,
   },
   googleButton: {
     flexDirection: "row",
     justifyContent: "center",
-    backgroundColor: "#fff",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: "#dadce0",
   },
   googleIcon: {
     width: 20,
@@ -100,8 +254,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   googleButtonText: {
-    color: "#3c4043",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: Typography.body,
+    fontWeight: "600",
+  },
+  signupLink: {
+    alignItems: "center",
+    marginTop: Spacing.xl,
+  },
+  signupText: {
+    fontSize: Typography.subhead,
   },
 });
