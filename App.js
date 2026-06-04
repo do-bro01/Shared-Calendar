@@ -10,6 +10,8 @@ import { OverlayHost } from "./src/context/OverlayContext";
 import { Typography } from "./constants/theme";
 
 import LoginScreen from "./src/screens/LoginScreen";
+import SignupScreen from "./src/screens/SignupScreen";
+import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import MainTabNavigator from "./src/navigation/MainTabNavigator";
 import ChatFab from "./src/components/ChatFab";
 
@@ -69,8 +71,15 @@ export default function App() {
                   // 로그인 되어 있음 → 메인탭 이동
                   <Stack.Screen name="MainTabs" component={MainTabNavigator} />
                 ) : (
-                  // 로그인 안 됨 → LoginScreen 표시
-                  <Stack.Screen name="Login" component={LoginScreen} />
+                  // 로그인 안 됨 → 인증 흐름 (로그인/회원가입/비밀번호찾기)
+                  <>
+                    <Stack.Screen name="Login" component={LoginScreen} />
+                    <Stack.Screen name="Signup" component={SignupScreen} />
+                    <Stack.Screen
+                      name="ForgotPassword"
+                      component={ForgotPasswordScreen}
+                    />
+                  </>
                 )}
               </Stack.Navigator>
             </NavigationContainer>

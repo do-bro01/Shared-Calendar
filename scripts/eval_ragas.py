@@ -65,10 +65,17 @@ JISOO_EMAIL = "synthetic-jisoo@sc-eval.local"
 JISOO_PASSWORD = "ScSynthetic!2026"
 GROUP_NAME = "캠퍼스 친구들 (합성 데이터)"
 
-METRIC_COLS = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
+METRIC_COLS = [
+    "faithfulness",
+    "answer_relevancy",
+    "answer_similarity",
+    "context_precision",
+    "context_recall",
+]
 METRIC_PRETTY = {
     "faithfulness": "Faithfulness",
     "answer_relevancy": "Answer Relevancy",
+    "answer_similarity": "Answer Similarity",
     "context_precision": "Context Precision",
     "context_recall": "Context Recall",
 }
@@ -343,6 +350,7 @@ def run_ragas(rows: list[dict], evaluator_model: str) -> pd.DataFrame:
     from ragas.llms import LangchainLLMWrapper
     from ragas.metrics import (
         AnswerRelevancy,
+        AnswerSimilarity,
         ContextPrecision,
         ContextRecall,
         Faithfulness,
@@ -372,6 +380,9 @@ def run_ragas(rows: list[dict], evaluator_model: str) -> pd.DataFrame:
         metrics=[
             Faithfulness(llm=evaluator_llm),
             AnswerRelevancy(llm=evaluator_llm, embeddings=evaluator_emb),
+            # 답변과 reference 의 임베딩 코사인 유사도. LLM 호출 없음 → 한국어
+            # 후보-질문 생성 노이즈 (Ans.Rel 의 n=1 문제) 회피.
+            AnswerSimilarity(embeddings=evaluator_emb),
             ContextPrecision(llm=evaluator_llm),
             ContextRecall(llm=evaluator_llm),
         ],
@@ -444,19 +455,21 @@ def plot_by_category(df: pd.DataFrame, out_path: Path) -> None:
 def plot_per_question(df: pd.DataFrame, out_path: Path) -> None:
     _setup_font()
     df_sorted = df.sort_values("id")
-    fig, ax = plt.subplots(figsize=(14, 6))
+    fig, ax = plt.subplots(figsize=(16, 6))
     x = np.arange(len(df_sorted))
-    width = 0.2
-    colors = ["#395fa5", "#2f9e44", "#e8590c", "#7048e8"]
+    n = len(METRIC_COLS)
+    width = 0.16
+    colors = ["#395fa5", "#2f9e44", "#1098ad", "#e8590c", "#7048e8"]
+    offset = (n - 1) / 2
     for i, col in enumerate(METRIC_COLS):
-        ax.bar(x + (i - 1.5) * width, df_sorted[col], width=width,
+        ax.bar(x + (i - offset) * width, df_sorted[col], width=width,
                label=METRIC_PRETTY[col], color=colors[i], edgecolor="white")
     ax.set_xticks(x)
     ax.set_xticklabels([f"Q{i}" for i in df_sorted["id"]], fontsize=10)
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("점수")
     ax.set_title("질문별 RAGAS 점수", fontsize=14, fontweight="bold")
-    ax.legend(loc="lower right", fontsize=9, framealpha=0.9)
+    ax.legend(loc="lower right", fontsize=9, framealpha=0.9, ncol=2)
     ax.axhline(0.8, color="gray", linestyle="--", linewidth=0.6, alpha=0.7)
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -538,6 +551,7 @@ def main() -> None:
     radar_scores = {
         "Faithfulness": means["faithfulness"],
         "Ans. Relevancy": means["answer_relevancy"],
+        "Ans. Similarity": means["answer_similarity"],
         "Ctx. Precision": means["context_precision"],
         "Ctx. Recall": means["context_recall"],
     }
@@ -558,10 +572,11 @@ def main() -> None:
     print("=" * 60)
     print("RAGAS 평가 결과 — 전체 평균 (샘플 {}개)".format(len(df)))
     print("=" * 60)
-    print(f"  Faithfulness      (사실 일치도)  : {means['faithfulness']:.3f}")
-    print(f"  Answer Relevancy  (답변 관련성)  : {means['answer_relevancy']:.3f}")
-    print(f"  Context Precision (검색 정밀도)  : {means['context_precision']:.3f}")
-    print(f"  Context Recall    (검색 재현율)  : {means['context_recall']:.3f}")
+    print(f"  Faithfulness      (사실 일치도)   : {means['faithfulness']:.3f}")
+    print(f"  Answer Relevancy  (답변 관련성)   : {means['answer_relevancy']:.3f}")
+    print(f"  Answer Similarity (정답 임베딩)   : {means['answer_similarity']:.3f}")
+    print(f"  Context Precision (검색 정밀도)   : {means['context_precision']:.3f}")
+    print(f"  Context Recall    (검색 재현율)   : {means['context_recall']:.3f}")
     print("=" * 60)
     print()
     print("카테고리별 평균:")
