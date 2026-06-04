@@ -68,11 +68,11 @@ export default function LoginScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          친구와 함께하는 일정,{"\n"}SC에서 시작해요
+          일정도, 추억도{"\n"}함께 쌓아가요
         </Text>
         <Text style={[styles.subtitle, { color: colors.muted }]}>
-          달력방을 만들어 친구들과 약속을 공유하고,{"\n"}
-          소중한 순간을 함께 계획해보세요
+          캘린더를 나누고{"\n"}
+          그날의 메모를 함께 남겨보세요
         </Text>
 
         <TextInput
