@@ -4,7 +4,9 @@
 
 ## 한 줄 요약
 
-SC는 **Expo + Supabase 기반 공유 캘린더 앱**이며, 현재 MVP 완료 후 "**일정 공유 + 추억 기록(사진/코멘트/RAG 챗봇)**" 컨셉으로 확장 중. RAG 챗봇은 수업 팀플 결과물로도 활용 예정.
+SC는 **Expo + Supabase 기반 공유 캘린더 앱**. MVP 위에 **메모 + RAG 챗봇**을 얹은 상태 (사진 기능은 보류). RAG 챗봇은 수업 팀플 결과물로도 활용 예정.
+
+**현재 진행 (2026-06-04)**: Phase 4 완료 (RAG 백엔드 + 챗봇 UI). 다음은 합성 데이터 → RAGAS 평가. 자세한 건 [docs/roadmap.md](docs/roadmap.md).
 
 ## 시작 시 반드시 읽을 것
 
@@ -65,9 +67,10 @@ sc/
 │   └── services/             # Auth/Friend/Group/User/Event Service (Supabase 호출)
 ├── constants/theme.ts        # 디자인 토큰 (Colors, Spacing, Radius)
 ├── supabase/
-│   ├── migrations/           # 기존 MVP 스키마 5개 파일
-│   └── functions/            # ← Phase 4에서 신규
-├── scripts/                  # ← Phase 5에서 신규 (Python)
+│   ├── migrations/           # MVP 5개 + 메모/RAG 2개
+│   └── functions/            # embed-batch, chat-rag (Edge Function, 배포됨)
+│       └── _shared/          # cors, openai, supabaseClient 유틸
+├── scripts/                  # ← Phase 5에서 신규 (Python, 합성 데이터 + RAGAS)
 ├── public/                   # PWA manifest, sw.js, icons
 ├── assets/                   # google-logo, icon.svg
 └── docs/

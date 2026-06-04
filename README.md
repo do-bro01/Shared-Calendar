@@ -6,6 +6,7 @@ Expo + React Native로 만든 개인/공유 캘린더 앱입니다. 웹 빌드�
 
 - **개인 캘린더**: 개인 일정 관리
 - **공유 캘린더**: 친구들과 달력방을 만들어 일정 공유
+- **AI 챗봇**: 공유 일정방의 메모를 RAG로 검색해 자연어로 답변 (pgvector + GPT-4o-mini)
 - **친구 관리**: SC ID를 통한 친구 추가/삭제
 - **다크 모드**: 라이트/다크 테마 지원
 - **PWA**: 모바일 브라우저에서 홈 화면에 추가하면 풀스크린 앱처럼 동작
@@ -20,14 +21,22 @@ Expo + React Native로 만든 개인/공유 캘린더 앱입니다. 웹 빌드�
 
 2. Supabase 환경 변수 설정
 
-   프로젝트 루트에 `.env` 파일을 만들고 Supabase URL과 anon key를 추가합니다.
+   프로젝트 루트에 `.env.local` 파일을 만들고 Supabase URL과 anon key를 추가합니다.
 
    ```bash
    EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   OPENAI_API_KEY=sk-...   # 챗봇용. Edge Function 에는 별도 등록 필요 (아래 참조)
    ```
 
    DB 스키마는 [supabase/migrations/](supabase/migrations/)에 있습니다.
+
+   Edge Function (챗봇 백엔드) 사용 시 OpenAI 키를 Supabase 시크릿에도 등록:
+
+   ```bash
+   supabase secrets set OPENAI_API_KEY=sk-...
+   supabase functions deploy embed-batch chat-rag
+   ```
 
 3. 개발 서버 실행
    ```bash
@@ -82,7 +91,8 @@ src/
 public/             # 웹 정적 파일 (PWA manifest, sw, 아이콘) → dist/ 루트로 복사
 assets/             # 앱 아이콘 원본 (icon.svg, google-logo.png)
 supabase/
-└── migrations/     # DB 스키마 마이그레이션
+├── migrations/     # DB 스키마 마이그레이션
+└── functions/      # Edge Function (Deno): embed-batch, chat-rag
 ios/                # Expo prebuild로 생성된 iOS 네이티브 프로젝트
 docs/               # 기획/회고 문서
 ```
@@ -91,7 +101,8 @@ docs/               # 기획/회고 문서
 
 - **Expo SDK 54** + React Native 0.81 (네이티브/웹 공통)
 - **React Navigation v7** (`@react-navigation/native-stack`, `bottom-tabs`)
-- **Supabase** (Auth + Postgres)
+- **Supabase** (Auth + Postgres + pgvector + Edge Functions)
+- **OpenAI** (`text-embedding-3-small` 임베딩 + `gpt-4o-mini` 챗봇)
 - **react-native-calendars** (캘린더 UI)
 - **AsyncStorage** (로컬 세션 저장)
 - **Vercel** (웹 정적 호스팅)

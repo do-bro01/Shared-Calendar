@@ -31,22 +31,25 @@ Deno.serve(async (req) => {
     }
 
     // 미임베딩 행 추출 (RLS 가 본인 멤버 그룹으로 자동 제한)
+    // - title 은 NOT NULL → 메모 없어도 제목만으로 임베딩 가능
     const { data: rows, error: selectError } = await supabase
       .from("group_events")
-      .select("id, memo")
-      .not("memo", "is", null)
+      .select("id, title, memo")
       .is("memo_embedded_at", null)
       .limit(BATCH_LIMIT);
 
     if (selectError) throw selectError;
 
     if (!rows || rows.length === 0) {
-      return json({ processed: 0, more: false, message: "no pending memos" });
+      return json({ processed: 0, more: false, message: "no pending events" });
     }
 
-    // 빈 문자열 메모는 임베딩 의미 없음 — 그래도 텍스트가 있다면 그대로 보낸다.
-    // (메모 작성 화면에서 trim 처리되어 있어 빈 문자열이 들어올 일은 거의 없음)
-    const embeddings = await embedTexts(rows.map((r) => r.memo));
+    // 임베딩 입력은 "title\nmemo" (memo 있으면) 또는 title 만
+    const texts = rows.map((r) => {
+      const title = r.title ?? "";
+      return r.memo ? `${title}\n${r.memo}` : title;
+    });
+    const embeddings = await embedTexts(texts);
 
     const now = new Date().toISOString();
     const results = await Promise.all(

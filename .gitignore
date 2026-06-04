@@ -38,6 +38,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# python (scripts/)
+__pycache__/
+*.pyc
+.venv/
+scripts/.venv/
+scripts/uv.lock
+.python-version
+
 app-example
 
 # generated native folders

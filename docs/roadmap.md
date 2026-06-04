@@ -1,14 +1,14 @@
 # SC 작업 로드맵
 
-> 작성일: 2026-05-15
-> 현재 위치: **Phase 0 완료 (MVP 정리됨)**
-> 다음 작업: **Phase 1 (디자인 토큰)**
+> 작성일: 2026-05-15 · 최근 갱신: 2026-06-04
+> 현재 위치: **Phase 4 완료 (RAG 백엔드 + 챗봇 UI)**
+> 다음 작업: **Phase 5 (합성 데이터) → Phase 6 (RAGAS 평가)**
 >
 > 이 문서는 살아있는 계획서입니다. 각 Phase 완료 시 체크 + 학습 내용 메모.
 
 ---
 
-## 0. 현재 상태 (2026-05-15 기준)
+## 0. 현재 상태 (2026-06-04 기준)
 
 ### 완료
 - [x] MVP 기능 구현 (로그인, 친구, 일정 CRUD, 공유 달력방, 다크모드)
@@ -16,6 +16,11 @@
 - [x] 디자인 토큰 슬림화 ([constants/theme.ts](../constants/theme.ts))
 - [x] 문서 동기화 ([docs/spec-sc.md](spec-sc.md))
 - [x] 팀플 문서 3종 ([rag-extension/](rag-extension/))
+- [x] 일정 메모 컬럼 추가 (`event_memo_column.sql`)
+- [x] RAG 스키마: pgvector + chat_sessions/chat_messages + `search_group_memories` RPC (`rag_extension_schema.sql`)
+- [x] Edge Function 2종: `embed-batch`, `chat-rag` (Deno/TS, 배포 완료)
+- [x] 챗봇 UI: 우하단 FAB + 풀스크린 모달 + 그룹 칩바 + 출처 카드
+- [x] 설정 탭에 "챗봇에게 내 일정 알려주기" 수동 임베딩 트리거
 
 ### 작동 중인 것
 - Vercel 웹 배포 ([README.md](../README.md) 참조)
@@ -365,11 +370,11 @@ scripts/backfill_embeddings.py                 ← 신규
 | Phase | 상태 | 완료일 | 메모 |
 |-------|------|--------|------|
 | 0. MVP 정리 | 완료 | 2026-05-15 | |
-| 1. 디자인 토큰 | 미시작 | - | |
-| 2. DB 스키마 | 미시작 | - | |
-| 3. 사진/코멘트 UI | 미시작 | - | |
-| 4. RAG 백엔드 | 미시작 | - | |
-| 5. 챗봇 UI + 합성데이터 | 미시작 | - | |
+| 1. 디자인 토큰 | 보류 | - | 기존 토큰으로 충분 — 별도 교체 작업 X |
+| 2. DB 스키마 | 완료 | 2026-06-02 ~ 06-04 | `event_memo_column.sql`(2026-06-02), `rag_extension_schema.sql`(2026-06-04) |
+| 3. 사진/코멘트 UI | 변경 | 2026-06-02 | 사진은 보류. 코멘트는 별도 테이블 대신 `memo` 컬럼으로 단순화 |
+| 4. RAG 백엔드 | 완료 | 2026-06-04 | `embed-batch`, `chat-rag` Edge Function |
+| 5. 챗봇 UI + 합성데이터 | 진행 중 | UI 완료 (06-04) | 합성 데이터/RAGAS 다음 |
 | 6. RAGAS 평가 + 발표 | 미시작 | - | |
 
 ---
@@ -378,7 +383,39 @@ scripts/backfill_embeddings.py                 ← 신규
 
 각 Phase 작업 중 알게 된 것을 여기에 추가. 추후 발표 자료 정리 시 활용.
 
-(비어있음 — Phase 1 시작 후 채워나갈 것)
+### Phase 2~4 (2026-06-02 ~ 06-04)
+
+#### 박제 규칙 vs pg_cron 충돌 (설계 선택)
+- 박제: "service_role 키는 Edge Function 에서 사용 금지"
+- 표준 Supabase 패턴: `pg_cron` → service_role 헤더로 Edge Function 호출
+- **결론**: 자동 cron 보류. 사용자 JWT 로 호출되는 **수동 트리거(설정 탭 버튼)** 만 사용
+- 임베딩 비용이 메모당 ~$0.000005 라 매번 호출해도 부담 없어 실용적으로 문제 X
+
+#### LLM 은 "오늘" 을 모른다
+- 챗봇 첫 동작 후 "오늘 일정 알려줘" 가 안 잡힘 → LLM 입력에 현재 날짜를 안 줬기 때문
+- 수정: system prompt 에 KST 기준 오늘 날짜·요일을 명시
+- 추가로 임베딩 검색만으론 시간 한정 질문이 약함 → **오늘~7일간 일정을 별도 SQL 쿼리로 컨텍스트에 함께 주입**
+- 두 채널(의미 검색 + 날짜 메타) 동시 제공이 RAG 품질에 의외로 큰 영향
+
+#### 메모 변경 시 임베딩 무효화는 DB 트리거로
+- 클라이언트가 `memo_embedded_at = NULL` 을 잊을 위험
+- `reset_memo_embedding_on_change` 트리거가 `memo` 컬럼 변경을 감지해 자동 무효화
+- 배치 잡은 `memo_embedded_at IS NULL` 만 체크 → 코드 단순
+
+#### `search_group_memories` 는 SECURITY INVOKER
+- RLS 가 자동 적용 → 비멤버 그룹 id 를 넘겨도 0건 반환
+- 별도 권한 체크 코드 0줄. 발표 시 핵심 차별점으로 강조 가능
+
+#### Edge Function (Deno) 환경 노트
+- `npm:@supabase/supabase-js@2` 형식으로 import
+- 배포 시 Docker 불필요 (`supabase functions deploy <name>`)
+- 호출자 JWT 로 클라이언트 만들면 그 사용자 권한 그대로 RLS 작동
+
+### Phase 5 (예정)
+
+(채울 항목)
+- 합성 데이터 생성 시 LLM 메모 자연스러움 vs 비용 트레이드오프
+- RAGAS 평가 결과 비교군(순수 LLM / Basic RAG / Advanced RAG) 차이
 
 ---
 
@@ -387,3 +424,4 @@ scripts/backfill_embeddings.py                 ← 신규
 | 날짜 | 변경 |
 |------|------|
 | 2026-05-15 | 최초 작성 (Phase 0 직후) |
+| 2026-06-04 | Phase 2~4 완료 반영 + 학습 메모 채움 |

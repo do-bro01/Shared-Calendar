@@ -127,10 +127,10 @@ Deno.serve(async (req) => {
     const chunksStr = chunks.length === 0
       ? "(검색 결과 없음)"
       : chunks
-        .map(
-          (c, i) =>
-            `[${i + 1}] ${c.event_date} — ${c.title}\n메모: ${c.memo}`,
-        )
+        .map((c, i) => {
+          const memoPart = c.memo ? `\n메모: ${c.memo}` : "";
+          return `[${i + 1}] ${c.event_date} — ${c.title}${memoPart}`;
+        })
         .join("\n\n");
 
     const upcomingStr = upcoming.length === 0
