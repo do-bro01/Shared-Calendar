@@ -1,0 +1,5 @@
+﻿category,faithfulness,answer_relevancy,context_precision,context_recall
+fact_date_place,0.842,0.428,0.792,0.778
+fact_person,0.611,0.451,0.333,0.333
+stat_pattern,0.7,0.244,0.417,0.5
+time_recall,0.75,0.433,0.569,0.635
