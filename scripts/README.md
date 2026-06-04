@@ -107,14 +107,75 @@ uv run python seed_synthetic_data.py --cleanup
 
 ---
 
-## 3. 시드 이후 흐름
+### 2.2 `eval_ragas.py` — RAGAS 평가
 
-1. **합성 데이터 시드** ← 본 스크립트
-2. **임베딩 백필** — 메모만 있고 임베딩이 없으면 챗봇이 검색 못 함.
-   - 가장 간단: 본인 계정으로 옵저버 가입한 상태에서 앱 **설정 탭 → "챗봇에게 내 일정 알려주기"** 버튼 누르면 `embed-batch` Edge Function 이 80개 메모를 일괄 임베딩.
-   - 또는 별도 백필 스크립트(추후 작성)에서 OpenAI 임베딩 API 직접 호출 + service_role 로 update.
-3. **챗봇 테스트** — "작년 여름에 다녀온 곳?", "민준이랑 등산 간 게 언제?" 등
-4. **RAGAS 평가** — Phase 6 (`eval_ragas.py` 작성 예정)
+합성 데이터로 만들어진 그룹 캘린더를 대상으로 `chat-rag` Edge Function의 RAG 품질을 RAGAS 4개 메트릭으로 평가합니다.
+
+**선행 조건**:
+- `seed_synthetic_data.py` 실행 완료
+- 메모 임베딩 백필 완료 (앱 설정 탭 → "챗봇에게 내 일정 알려주기")
+- 챗봇 수동 테스트로 답변이 잘 나오는 것 확인
+
+**실행**:
+
+```bash
+cd scripts
+uv sync --group ragas   # 처음 한 번 (ragas/langchain/matplotlib 추가)
+uv run python eval_ragas.py
+```
+
+**옵션**:
+
+```bash
+uv run python eval_ragas.py --limit 3        # 처음 3개만 (디버깅)
+uv run python eval_ragas.py --skip-collect   # rag_responses.json 재사용 (평가만 다시)
+uv run python eval_ragas.py --output-dir my_eval/
+```
+
+**흐름**:
+1. 가상 페르소나 **지수**로 로그인 → JWT 획득
+2. `group_calendars` 에서 "캠퍼스 친구들 (합성 데이터)" 그룹 id 조회
+3. `ground_truth.json` 의 15개 질문을 `chat-rag` 에 호출
+4. `(question, answer, retrieved_contexts, reference)` 데이터셋 구성
+5. RAGAS `evaluate()` 로 4개 메트릭 측정 (gpt-4o-mini 평가자)
+6. 결과 저장 (`eval_outputs/`)
+
+**산출물** (`eval_outputs/` 폴더):
+
+| 파일 | 내용 |
+|---|---|
+| `rag_responses.json` | chat-rag 원본 응답 (JWT 헤더 제외) |
+| `ragas_results.csv` | 질문별 4개 메트릭 점수 |
+| `ragas_by_category.csv` | 카테고리별 평균 점수 |
+| `ragas_radar.png` | 전체 평균 레이더 차트 |
+| `ragas_by_category.png` | 카테고리별 바차트 |
+| `ragas_per_question.png` | 질문별 바차트 |
+
+**Ground Truth 분포** (`ground_truth.json`):
+
+| 카테고리 | 개수 | 예시 |
+|---|---|---|
+| 사실(날짜/장소) | 6 | "2025년 12월 13일에 본 콘서트는?" |
+| 사실(인물/관계) | 3 | "셋이 같이 등산 간 곳들 알려줘" |
+| 통계/패턴 | 3 | "지난 1년 동안 가장 자주 간 카페는?" |
+| 시간 한정 회상 | 3 | "2026년 1월에 한 일들 알려줘" |
+
+**평가 환경 제약**:
+- `retrieved_contexts` 에는 `chat-rag` 의 **벡터 검색 결과 (top-8)** 만 포함. `chat-rag` 은 그룹 전체 일정 메타 200개도 LLM 에 함께 주입하지만, 평가 LLM 토큰 폭주 방지 위해 RAGAS 입력에선 제외함.
+- → ContextRecall 이 의도적으로 낮게 측정될 수 있음. 이는 "벡터 검색만으로는 카테고리·시간 한정 질문에 약하다 → 메타 채널을 추가했다"는 설계 결정을 정량적으로 보여주는 자료가 됨.
+
+**비용 추정**:
+- chat-rag 호출 15회 + RAGAS 평가 LLM 호출 (4 metric × 15 sample = 60 평가) → **약 $0.30~0.50** (OpenAI gpt-4o-mini 기준)
+
+---
+
+## 3. 시드~평가 전체 흐름
+
+1. **합성 데이터 시드** — `seed_synthetic_data.py --owner ...`
+2. **임베딩 백필** — 앱 설정 탭 → "챗봇에게 내 일정 알려주기"
+3. **챗봇 수동 확인** — "작년 여름에 다녀온 곳?" 같은 질문에 합성 데이터 기반으로 답하는지
+4. **RAGAS 평가** — `eval_ragas.py`
+5. **평가 보고서 작성** — `docs/rag-extension/evaluation-report.md` (산출물 임베드)
 
 ---
 

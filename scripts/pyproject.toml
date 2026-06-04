@@ -12,9 +12,17 @@ dependencies = [
 
 [dependency-groups]
 ragas = [
-    "ragas>=0.2.0",
+    # ragas 0.4.3 (최신, 2026-06 기준) 의 ragas/llms/base.py 는 여전히
+    # `from langchain_community.chat_models.vertexai import ChatVertexAI` 를
+    # 직접 import 함. langchain-community 0.4 에서 이 경로가 제거되어
+    # ModuleNotFoundError 발생. → langchain 계열을 0.3 라인에 고정.
+    "ragas>=0.4.0,<0.5",
+    "langchain>=0.3,<1.0",
+    "langchain-openai>=0.2,<1.0",
+    "langchain-community>=0.3,<0.4",
     "datasets>=3.0.0",
     "pandas>=2.2.0",
+    "matplotlib>=3.9.0",
 ]
 
 [tool.uv]
