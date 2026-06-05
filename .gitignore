@@ -51,3 +51,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# PPT (발표 자료, 로컬 전용)
+PPT/
