@@ -2,7 +2,7 @@
 -- 신규 가입자를 합성 데이터 공유 달력방에 자동 추가 (옵저버)
 --
 -- 목적: 친구 추가/초대 없이도 모든 사용자가 합성 데이터 달력방
---       "캠퍼스 친구들 (합성 데이터)" 을 볼 수 있게 한다.
+--       "OO동아리 (예시)" 을 볼 수 있게 한다.
 --       group_calendars.members 배열에 auth_id 만 들어가면
 --       RLS(select using auth.uid() = any(members)) 상 읽기가 열린다.
 --       일정 작성자(user_id)는 페르소나 그대로이므로 신규 유저는 옵저버.
@@ -26,7 +26,7 @@ begin
   update public.group_calendars
   set    members    = array_append(members, new.id),
          updated_at = now()
-  where  name = '캠퍼스 친구들 (합성 데이터)'
+  where  name = 'OO동아리 (예시)'
     and  not (new.id = any(members));   -- 중복 방지(멱등)
   return new;
 end;
@@ -51,4 +51,4 @@ set    members = (
          ) s
        ),
        updated_at = now()
-where  name = '캠퍼스 친구들 (합성 데이터)';
+where  name = 'OO동아리 (예시)';

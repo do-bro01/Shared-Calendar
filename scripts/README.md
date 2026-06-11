@@ -68,7 +68,7 @@ uv run python seed_synthetic_data.py
 uv run python seed_synthetic_data.py --owner dohyunge6358@gmail.com
 ```
 
-이 옵션을 주면 본인 auth_id 가 `group_calendars.members` 배열에 추가되어, 본인 앱(`공유 캘린더` 탭)에서도 "캠퍼스 친구들 (합성 데이터)" 방이 보입니다. 일정 자체의 `user_id`는 가상 페르소나로 유지되므로 페르소나 톤은 보존됩니다.
+이 옵션을 주면 본인 auth_id 가 `group_calendars.members` 배열에 추가되어, 본인 앱(`공유 캘린더` 탭)에서도 "OO동아리 (예시)" 방이 보입니다. 일정 자체의 `user_id`는 가상 페르소나로 유지되므로 페르소나 톤은 보존됩니다.
 
 **다른 옵션**:
 
@@ -134,7 +134,7 @@ uv run python eval_ragas.py --output-dir my_eval/
 
 **흐름**:
 1. 가상 페르소나 **지수**로 로그인 → JWT 획득
-2. `group_calendars` 에서 "캠퍼스 친구들 (합성 데이터)" 그룹 id 조회
+2. `group_calendars` 에서 "OO동아리 (예시)" 그룹 id 조회
 3. `ground_truth.json` 의 15개 질문을 `chat-rag` 에 호출
 4. `(question, answer, retrieved_contexts, reference)` 데이터셋 구성
 5. RAGAS `evaluate()` 로 4개 메트릭 측정 (gpt-4o-mini 평가자)

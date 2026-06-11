@@ -47,7 +47,7 @@ def _require(key: str) -> str:
 SUPABASE_URL = _require("EXPO_PUBLIC_SUPABASE_URL")
 SERVICE_ROLE_KEY = _require("SUPABASE_SERVICE_ROLE_KEY")
 
-GROUP_NAME = "캠퍼스 친구들 (합성 데이터)"
+GROUP_NAME = "OO동아리 (예시)"
 SYNTHETIC_EMAIL_DOMAIN = "sc-eval.local"
 SYNTHETIC_PASSWORD = "ScSynthetic!2026"
 

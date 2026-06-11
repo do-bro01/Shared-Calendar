@@ -63,7 +63,7 @@ OPENAI_API_KEY = _require("OPENAI_API_KEY")
 
 JISOO_EMAIL = "synthetic-jisoo@sc-eval.local"
 JISOO_PASSWORD = "ScSynthetic!2026"
-GROUP_NAME = "캠퍼스 친구들 (합성 데이터)"
+GROUP_NAME = "OO동아리 (예시)"
 
 METRIC_COLS = [
     "faithfulness",
